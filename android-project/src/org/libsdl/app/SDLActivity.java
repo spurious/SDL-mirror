@@ -200,6 +200,7 @@ public class SDLActivity extends Activity {
     public static void handleNativeExit() {
         SDLActivity.mSDLThread = null;
         mSingleton.finish();
+        android.os.Process.killProcess(android.os.Process.myPid());
     }
 
 
