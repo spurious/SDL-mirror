@@ -2857,13 +2857,13 @@ SDL_GL_GetAttribute(SDL_GLattr attr, int *value)
 
     glGetStringFunc = SDL_GL_GetProcAddress("glGetString");
     if (!glGetStringFunc) {
-        return SDL_SetError("Failed getting OpenGL glGetString entry point");
+        return -1; /* error already registered */
     }
 #endif
 
     glGetErrorFunc = SDL_GL_GetProcAddress("glGetError");
     if (!glGetErrorFunc) {
-        return SDL_SetError("Failed getting OpenGL glGetError entry point");
+        return -1; /* error already registered */
     }
 
     /* Clear value in any case */
