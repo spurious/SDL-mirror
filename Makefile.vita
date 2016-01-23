@@ -87,7 +87,7 @@ CFLAGS  = -Wl,-q -Wall -O3 -Iinclude
 ASFLAGS = $(CFLAGS)
 
 $(TARGET_LIB): $(OBJS)
-	$(AR) -rc $@ $^
+	$(AR) rcs $@ $^
 
 clean:
 	@rm -rf $(TARGET_LIB) $(OBJS)
