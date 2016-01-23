@@ -20,7 +20,7 @@
 */
 #include "../../SDL_internal.h"
 
-#if SDL_VIDEO_DRIVER_PSP
+#if SDL_VIDEO_DRIVER_VITA
 
 #include <stdio.h>
 
@@ -28,7 +28,7 @@
 #include "SDL_mouse.h"
 #include "../../events/SDL_events_c.h"
 
-#include "SDL_pspmouse_c.h"
+#include "SDL_vitamouse_c.h"
 
 
 /* The implementation dependent data for the window manager cursor */
@@ -36,6 +36,6 @@ struct WMcursor {
     int unused;
 };
 
-#endif /* SDL_VIDEO_DRIVER_PSP */
+#endif /* SDL_VIDEO_DRIVER_VITA */
 
 /* vi: set ts=4 sw=4 expandtab: */

@@ -196,6 +196,9 @@ extern SDL_RenderDriver DirectFB_RenderDriver;
 #if SDL_VIDEO_RENDER_PSP
 extern SDL_RenderDriver PSP_RenderDriver;
 #endif
+#if SDL_VIDEO_RENDER_VITA
+extern SDL_RenderDriver VITA_RenderDriver;
+#endif
 extern SDL_RenderDriver SW_RenderDriver;
 
 #endif /* !SDL_RENDER_DISABLED */

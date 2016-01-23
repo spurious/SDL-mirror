@@ -19,6 +19,6 @@
   3. This notice may not be removed or altered from any source distribution.
 */
 
-#include "SDL_pspvideo.h"
+#include "SDL_vitavideo.h"
 
 /* Functions to be exported */

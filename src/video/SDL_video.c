@@ -96,9 +96,12 @@ static VideoBootStrap *bootstrap[] = {
 #if SDL_VIDEO_DRIVER_PSP
     &PSP_bootstrap,
 #endif
+#if SDL_VIDEO_DRIVER_VITA
+    &VITA_bootstrap,
+#endif
 #if SDL_VIDEO_DRIVER_RPI
     &RPI_bootstrap,
-#endif 
+#endif
 #if SDL_VIDEO_DRIVER_NACL
     &NACL_bootstrap,
 #endif
@@ -264,7 +267,7 @@ SDL_CreateWindowTexture(SDL_VideoDevice *unused, SDL_Window * window, Uint32 * f
                 }
             }
         }
-        
+
         if (!renderer) {
             for (i = 0; i < SDL_GetNumRenderDrivers(); ++i) {
                 SDL_RendererInfo info;
@@ -1166,7 +1169,7 @@ SDL_UpdateFullscreenMode(SDL_Window * window, SDL_bool fullscreen)
      */
     if (window->is_destroying && (window->last_fullscreen_flags & FULLSCREEN_MASK) == SDL_WINDOW_FULLSCREEN_DESKTOP)
         return 0;
-    
+
     /* If we're switching between a fullscreen Space and "normal" fullscreen, we need to get back to normal first. */
     if (fullscreen && ((window->last_fullscreen_flags & FULLSCREEN_MASK) == SDL_WINDOW_FULLSCREEN_DESKTOP) && ((window->flags & FULLSCREEN_MASK) == SDL_WINDOW_FULLSCREEN)) {
         if (!Cocoa_SetWindowFullscreenSpace(window, SDL_FALSE)) {
@@ -1783,7 +1786,7 @@ SDL_GetWindowPosition(SDL_Window * window, int *x, int *y)
     /* Fullscreen windows are always at their display's origin */
     if (window->flags & SDL_WINDOW_FULLSCREEN) {
         int displayIndex;
-        
+
         if (x) {
             *x = 0;
         }
@@ -2106,7 +2109,7 @@ SDL_SetWindowFullscreen(SDL_Window * window, Uint32 flags)
     if (SDL_UpdateFullscreenMode(window, FULLSCREEN_VISIBLE(window)) == 0) {
         return 0;
     }
-    
+
     window->flags &= ~FULLSCREEN_MASK;
     window->flags |= oldflags;
     return -1;
@@ -2251,11 +2254,11 @@ SDL_SetWindowModalFor(SDL_Window * modal_window, SDL_Window * parent_window)
     if (!_this->SetWindowModalFor) {
         return SDL_Unsupported();
     }
-    
+
     return _this->SetWindowModalFor(_this, modal_window, parent_window);
 }
 
-int 
+int
 SDL_SetWindowInputFocus(SDL_Window * window)
 {
     CHECK_WINDOW_MAGIC(window, -1);
@@ -2263,7 +2266,7 @@ SDL_SetWindowInputFocus(SDL_Window * window)
     if (!_this->SetWindowInputFocus) {
         return SDL_Unsupported();
     }
-    
+
     return _this->SetWindowInputFocus(_this, window);
 }
 
@@ -3776,7 +3779,7 @@ float SDL_ComputeDiagonalDPI(int hpix, int vpix, float hinches, float vinches)
 	if ( den2 <= 0.0f ) {
 		return 0.0f;
 	}
-		
+
 	return (float)(SDL_sqrt((double)hpix * (double)hpix + (double)vpix * (double)vpix) /
 				   SDL_sqrt((double)den2));
 }
