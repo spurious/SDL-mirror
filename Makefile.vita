@@ -80,9 +80,7 @@ OBJS= src/SDL.o \
 
 PREFIX  = arm-vita-eabi
 CC      = $(PREFIX)-gcc
-AR      = $(PREFIX)-ar
-READELF = $(PREFIX)-readelf
-OBJDUMP = $(PREFIX)-objdump
+AR      = $(PREFIX)-gcc-ar
 CFLAGS  = -Wl,-q -Wall -O3 -Iinclude
 ASFLAGS = $(CFLAGS)
 
