@@ -29,8 +29,10 @@
 static SDLTest_CommonState *state;
 static SDL_Rect textRect, markedRect;
 static SDL_Color lineColor = {0,0,0,0};
-static SDL_Color backColor = {255,255,255,0};
+static SDL_Color backColor = {255,255,255,255};
+#ifdef HAVE_SDL_TTF
 static SDL_Color textColor = {0,0,0,0};
+#endif
 static char text[MAX_TEXT_LENGTH], markedText[SDL_TEXTEDITINGEVENT_TEXT_SIZE];
 static int cursor = 0;
 #ifdef HAVE_SDL_TTF
@@ -108,21 +110,25 @@ void CleanupVideo()
 #endif
 }
 
-
 void _Redraw(SDL_Renderer * renderer) {
     int w = 0, h = textRect.h;
     SDL_Rect cursorRect, underlineRect;
 
-    SDL_SetRenderDrawColor(renderer, 255,255,255,255);
+    SDL_SetRenderDrawColor(renderer, backColor.r, backColor.g, backColor.b, backColor.a);
     SDL_RenderFillRect(renderer,&textRect);
 
 #ifdef HAVE_SDL_TTF
     if (*text)
     {
         SDL_Surface *textSur = TTF_RenderUTF8_Blended(font, text, textColor);
-        SDL_Rect dest = {textRect.x, textRect.y, textSur->w, textSur->h };
+        SDL_Rect dest;
+        SDL_Texture *texture;
+        dest.x = textRect.x;
+        dest.y = textRect.y;
+        dest.w = textSur->w;
+        dest.h = textSur->h;
 
-        SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer,textSur);
+        texture = SDL_CreateTextureFromSurface(renderer,textSur);
         SDL_FreeSurface(textSur);
 
         SDL_RenderCopy(renderer,texture,NULL,&dest);
@@ -148,18 +154,21 @@ void _Redraw(SDL_Renderer * renderer) {
     cursorRect.w = 2;
     cursorRect.h = h;
 
-    SDL_SetRenderDrawColor(renderer, 255,255,255,255);
+    SDL_SetRenderDrawColor(renderer, backColor.r, backColor.g, backColor.b, backColor.a);
     SDL_RenderFillRect(renderer,&markedRect);
 
     if (markedText[0])
     {
 #ifdef HAVE_SDL_TTF
+        SDL_Surface *textSur;
+        SDL_Rect dest;
+        SDL_Texture *texture;
         if (cursor)
         {
             char *p = utf8_advance(markedText, cursor);
             char c = 0;
             if (!p)
-                p = &markedText[strlen(markedText)];
+                p = &markedText[SDL_strlen(markedText)];
 
             c = *p;
             *p = 0;
@@ -167,10 +176,13 @@ void _Redraw(SDL_Renderer * renderer) {
             cursorRect.x += w;
             *p = c;
         }
-        SDL_Surface *textSur = TTF_RenderUTF8_Blended(font, markedText, textColor);
-        SDL_Rect dest = {markedRect.x, markedRect.y, textSur->w, textSur->h };
+        textSur = TTF_RenderUTF8_Blended(font, markedText, textColor);
+        dest.x = markedRect.x;
+        dest.y = markedRect.y;
+        dest.w = textSur->w;
+        dest.h = textSur->h;
         TTF_SizeUTF8(font, markedText, &w, &h);
-        SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer,textSur);
+        texture = SDL_CreateTextureFromSurface(renderer,textSur);
         SDL_FreeSurface(textSur);
 
         SDL_RenderCopy(renderer,texture,NULL,&dest);
@@ -182,11 +194,11 @@ void _Redraw(SDL_Renderer * renderer) {
         underlineRect.h = 2;
         underlineRect.w = w;
 
-        SDL_SetRenderDrawColor(renderer, 0,0,0,0);
+        SDL_SetRenderDrawColor(renderer, lineColor.r, lineColor.g, lineColor.b, lineColor.a);
         SDL_RenderFillRect(renderer,&markedRect);
     }
 
-    SDL_SetRenderDrawColor(renderer, 0,0,0,0);
+    SDL_SetRenderDrawColor(renderer, lineColor.r, lineColor.g, lineColor.b, lineColor.a);
     SDL_RenderFillRect(renderer,&cursorRect);
 
     SDL_SetTextInputRect(&markedRect);

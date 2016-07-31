@@ -4,8 +4,8 @@
  *  use however you want
  */
 
-#import "SDL.h"
-#import "common.h"
+#include "SDL.h"
+#include "common.h"
 
 #define GLYPH_SIZE_IMAGE 16     /* size of glyphs (characters) in the bitmap font file */
 #define GLYPH_SIZE_SCREEN 32    /* size of glyphs (characters) as shown on the screen */
@@ -253,7 +253,7 @@ main(int argc, char *argv[])
 
     int done = 0;
     /* loop till we get SDL_Quit */
-    while (SDL_WaitEvent(&event)) {
+    while (!done && SDL_WaitEvent(&event)) {
         switch (event.type) {
         case SDL_QUIT:
             done = 1;
