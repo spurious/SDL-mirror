@@ -23,6 +23,7 @@
 #if SDL_JOYSTICK_VITA
 
 /* This is the PSVita implementation of the SDL joystick API */
+#include <psp2/types.h>
 #include <psp2/ctrl.h>
 #include <psp2/kernel/threadmgr.h>
 
