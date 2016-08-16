@@ -69,6 +69,7 @@ extern AudioBootStrap NDSAUD_bootstrap;
 extern AudioBootStrap FUSIONSOUND_bootstrap;
 extern AudioBootStrap ANDROIDAUD_bootstrap;
 extern AudioBootStrap PSPAUD_bootstrap;
+extern AudioBootStrap VITAAUD_bootstrap;
 extern AudioBootStrap SNDIO_bootstrap;
 extern AudioBootStrap EmscriptenAudio_bootstrap;
 
@@ -140,6 +141,9 @@ static const AudioBootStrap *const bootstrap[] = {
 #endif
 #if SDL_AUDIO_DRIVER_PSP
     &PSPAUD_bootstrap,
+#endif
+#if SDL_AUDIO_DRIVER_VITA
+    &VITAAUD_bootstrap,
 #endif
 #if SDL_AUDIO_DRIVER_EMSCRIPTEN
     &EmscriptenAudio_bootstrap,
