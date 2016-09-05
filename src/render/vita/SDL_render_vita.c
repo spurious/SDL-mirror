@@ -579,6 +579,7 @@ VITA_RenderPresent(SDL_Renderer *renderer)
 	vita2d_end_drawing();
 	vita2d_swap_buffers();
 
+	data->displayListAvail = SDL_FALSE;
 }
 
 static void
