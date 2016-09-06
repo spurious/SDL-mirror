@@ -457,8 +457,8 @@ VITA_RenderCopy(SDL_Renderer *renderer, SDL_Texture *texture,
 
 	VITA_SetBlendMode(renderer, renderer->blendMode);
 
-	vita2d_draw_texture_part(vita_texture->tex, dstrect->x, dstrect->y,
-	srcrect->x, srcrect->y, srcrect->w, srcrect->h);
+	vita2d_draw_texture_part_scale(vita_texture->tex, dstrect->x, dstrect->y,
+		srcrect->x, srcrect->y, srcrect->w, srcrect->h, dstrect->w/srcrect->w, dstrect->h/srcrect->h);
 
 	return 0;
 }
