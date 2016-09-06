@@ -119,7 +119,7 @@ VITA_Create()
     device->HideScreenKeyboard = VITA_HideScreenKeyboard;
     device->IsScreenKeyboardShown = VITA_IsScreenKeyboardShown;
 
-    //device->PumpEvents = VITA_PumpEvents;
+	device->PumpEvents = VITA_PumpEvents;
 
     return device;
 }
@@ -300,6 +300,9 @@ SDL_bool VITA_IsScreenKeyboardShown(_THIS, SDL_Window *window)
     return SDL_FALSE;
 }
 
+void VITA_PumpEvents(_THIS)
+{
+}
 
 #endif /* SDL_VIDEO_DRIVER_VITA */
 
