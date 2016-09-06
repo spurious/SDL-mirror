@@ -90,7 +90,7 @@ int SDL_SYS_JoystickInit(void)
 
     /* Setup input */
     //sceCtrlSetSamplingCycle(0);
-    //sceCtrlSetSamplingMode(SCE_CTRL_MODE_ANALOG);
+	sceCtrlSetSamplingMode(SCE_CTRL_MODE_ANALOG);
 
     /* Create an accurate map from analog inputs (0 to 255)
        to SDL joystick positions (-32768 to 32767) */
