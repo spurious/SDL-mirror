@@ -452,13 +452,15 @@ VITA_RenderCopy(SDL_Renderer *renderer, SDL_Texture *texture,
 				const SDL_Rect *srcrect, const SDL_FRect *dstrect)
 {
 	VITA_TextureData *vita_texture = (VITA_TextureData *) texture->driverdata;
+	float scaleX = dstrect->w > srcrect->w ? (float)(dstrect->w/srcrect->w) : 1;
+	float scaleY = dstrect->h > srcrect->h ? (float)(dstrect->h/srcrect->h) : 1;
 
 	StartDrawing(renderer);
 
 	VITA_SetBlendMode(renderer, renderer->blendMode);
 
 	vita2d_draw_texture_part_scale(vita_texture->tex, dstrect->x, dstrect->y,
-		srcrect->x, srcrect->y, srcrect->w, srcrect->h, dstrect->w/srcrect->w, dstrect->h/srcrect->h);
+		srcrect->x, srcrect->y, srcrect->w, srcrect->h, scaleX, scaleY);
 
 	return 0;
 }

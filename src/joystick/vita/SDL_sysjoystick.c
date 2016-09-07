@@ -89,7 +89,6 @@ int SDL_SYS_JoystickInit(void)
     int i;
 
     /* Setup input */
-    //sceCtrlSetSamplingCycle(0);
 	sceCtrlSetSamplingMode(SCE_CTRL_MODE_ANALOG);
 
     /* Create an accurate map from analog inputs (0 to 255)
