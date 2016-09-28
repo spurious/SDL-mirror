@@ -8,6 +8,7 @@ Makefile
 sdl-config
 SDL2.spec
 build
+gen
 Build
 
 # for Xcode
@@ -120,6 +121,7 @@ test/testbounds
 test/torturethread
 test/testdisplayinfo
 test/testqsort
+test/testaudiocapture
 test/*.exe
 test/*.dSYM
 buildbot

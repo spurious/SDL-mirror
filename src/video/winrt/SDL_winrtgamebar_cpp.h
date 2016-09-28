@@ -18,8 +18,18 @@
      misrepresented as being the original software.
   3. This notice may not be removed or altered from any source distribution.
 */
-#include "../SDL_internal.h"
+#include "SDL_config.h"
 
-#define SDL_AllocAudioMem   SDL_malloc
-#define SDL_FreeAudioMem    SDL_free
+#ifndef _SDL_winrtgamebar_h
+#define _SDL_winrtgamebar_h
+
+#ifdef __cplusplus
+/* These are exported as C++ functions, rather than C, to fix a compilation
+   bug with MSVC 2013, for Windows 8.x builds. */
+extern void WINRT_InitGameBar(_THIS);
+extern void WINRT_QuitGameBar(_THIS);
+#endif
+
+#endif /* _SDL_winrtmouse_h */
+
 /* vi: set ts=4 sw=4 expandtab: */
