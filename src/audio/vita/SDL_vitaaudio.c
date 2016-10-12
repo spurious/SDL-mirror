@@ -170,7 +170,6 @@ VITAAUD_Init(SDL_AudioDriverImpl * impl)
     impl->PlayDevice = VITAAUD_PlayDevice;
     impl->WaitDevice = VITAAUD_WaitDevice;
     impl->GetDeviceBuf = VITAAUD_GetDeviceBuf;
-    impl->WaitDone = VITAAUD_WaitDevice;
     impl->CloseDevice = VITAAUD_CloseDevice;
     impl->ThreadInit = VITAAUD_ThreadInit;
 
