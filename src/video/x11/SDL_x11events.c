@@ -35,6 +35,7 @@
 #include "../../events/SDL_mouse_c.h"
 #include "../../events/SDL_touch_c.h"
 
+#include "SDL_hints.h"
 #include "SDL_timer.h"
 #include "SDL_syswm.h"
 
@@ -379,8 +380,8 @@ X11_DispatchFocusIn(_THIS, SDL_WindowData *data)
         X11_XSetICFocus(data->ic);
     }
 #endif
-#ifdef SDL_USE_IBUS
-    SDL_IBus_SetFocus(SDL_TRUE);
+#ifdef SDL_USE_IME
+    SDL_IME_SetFocus(SDL_TRUE);
 #endif
 }
 
@@ -402,8 +403,8 @@ X11_DispatchFocusOut(_THIS, SDL_WindowData *data)
         X11_XUnsetICFocus(data->ic);
     }
 #endif
-#ifdef SDL_USE_IBUS
-    SDL_IBus_SetFocus(SDL_FALSE);
+#ifdef SDL_USE_IME
+    SDL_IME_SetFocus(SDL_FALSE);
 #endif
 }
 
@@ -523,9 +524,9 @@ X11_UpdateUserTime(SDL_WindowData *data, const unsigned long latest)
         X11_XChangeProperty(display, data->xwindow, videodata->_NET_WM_USER_TIME,
                             XA_CARDINAL, 32, PropModeReplace,
                             (const unsigned char *) &latest, 1);
-        #if DEBUG_XEVENTS
+#ifdef DEBUG_XEVENTS
         printf("window %p: updating _NET_WM_USER_TIME to %lu\n", data, latest);
-        #endif
+#endif
         data->user_time = latest;
     }
 }
@@ -535,13 +536,18 @@ static void
 X11_DispatchEvent(_THIS)
 {
     SDL_VideoData *videodata = (SDL_VideoData *) _this->driverdata;
-    Display *display = videodata->display;
+    Display *display;
     SDL_WindowData *data;
     XEvent xevent;
     int orig_event_type;
     KeyCode orig_keycode;
     XClientMessageEvent m;
     int i;
+
+    if (!videodata) {
+        return;
+    }
+    display = videodata->display;
 
     SDL_zero(xevent);           /* valgrind fix. --ryan. */
     X11_XNextEvent(display, &xevent);
@@ -564,15 +570,12 @@ X11_DispatchEvent(_THIS)
 #endif
         if (orig_keycode) {
             /* Make sure dead key press/release events are sent */
-            /* Actually, don't do this because it causes double-delivery
-               of some keys on Ubuntu 14.04 (bug 2526)
             SDL_Scancode scancode = videodata->key_layout[orig_keycode];
             if (orig_event_type == KeyPress) {
                 SDL_SendKeyboardKey(SDL_PRESSED, scancode);
             } else {
                 SDL_SendKeyboardKey(SDL_RELEASED, scancode);
             }
-            */
         }
         return;
     }
@@ -711,6 +714,7 @@ X11_DispatchEvent(_THIS)
                 data->pending_focus = PENDING_FOCUS_IN;
                 data->pending_focus_time = SDL_GetTicks() + PENDING_FOCUS_TIME;
             }
+            data->last_focus_event_time = SDL_GetTicks();
         }
         break;
 
@@ -762,11 +766,7 @@ X11_DispatchEvent(_THIS)
             if (videodata->key_layout[keycode] == SDL_SCANCODE_UNKNOWN && keycode) {
                 int min_keycode, max_keycode;
                 X11_XDisplayKeycodes(display, &min_keycode, &max_keycode);
-#if SDL_VIDEO_DRIVER_X11_HAS_XKBKEYCODETOKEYSYM
-                keysym = X11_XkbKeycodeToKeysym(display, keycode, 0, 0);
-#else
-                keysym = X11_XKeycodeToKeysym(display, keycode, 0);
-#endif
+                keysym = X11_KeyCodeToSym(_this, keycode, xevent.xkey.state >> 13);
                 fprintf(stderr,
                         "The key you just pressed is not recognized by SDL. To help get this fixed, please report this to the SDL mailing list <sdl@libsdl.org> X11 KeyCode %d (%d), X11 KeySym 0x%lX (%s).\n",
                         keycode, keycode - min_keycode, keysym,
@@ -779,14 +779,16 @@ X11_DispatchEvent(_THIS)
             if (data->ic) {
                 X11_Xutf8LookupString(data->ic, &xevent.xkey, text, sizeof(text),
                                   &keysym, &status);
+            } else {
+                X11_XLookupString(&xevent.xkey, text, sizeof(text), &keysym, NULL);
             }
 #else
             X11_XLookupString(&xevent.xkey, text, sizeof(text), &keysym, NULL);
 #endif
 
-#ifdef SDL_USE_IBUS
+#ifdef SDL_USE_IME
             if(SDL_GetEventState(SDL_TEXTINPUT) == SDL_ENABLE){
-                handled_by_ime = SDL_IBus_ProcessKeyEvent(keysym, keycode);
+                handled_by_ime = SDL_IME_ProcessKeyEvent(keysym, keycode);
             }
 #endif
             if (!handled_by_ime) {
@@ -840,14 +842,28 @@ X11_DispatchEvent(_THIS)
                    xevent.xconfigure.x, xevent.xconfigure.y,
                    xevent.xconfigure.width, xevent.xconfigure.height);
 #endif
+            /* Real configure notify events are relative to the parent, synthetic events are absolute. */
+            if (!xevent.xconfigure.send_event) {
+                unsigned int NumChildren;
+                Window ChildReturn, Root, Parent;
+                Window * Children;
+                /* Translate these coodinates back to relative to root */
+                X11_XQueryTree(data->videodata->display, xevent.xconfigure.window, &Root, &Parent, &Children, &NumChildren);
+                X11_XTranslateCoordinates(xevent.xconfigure.display,
+                                        Parent, DefaultRootWindow(xevent.xconfigure.display),
+                                        xevent.xconfigure.x, xevent.xconfigure.y,
+                                        &xevent.xconfigure.x, &xevent.xconfigure.y,
+                                        &ChildReturn);
+            }
+                
             if (xevent.xconfigure.x != data->last_xconfigure.x ||
                 xevent.xconfigure.y != data->last_xconfigure.y) {
                 SDL_SendWindowEvent(data->window, SDL_WINDOWEVENT_MOVED,
                                     xevent.xconfigure.x, xevent.xconfigure.y);
-#ifdef SDL_USE_IBUS
+#ifdef SDL_USE_IME
                 if(SDL_GetEventState(SDL_TEXTINPUT) == SDL_ENABLE){
-                    /* Update IBus candidate list position */
-                    SDL_IBus_UpdateTextRect(NULL);
+                    /* Update IME candidate list position */
+                    SDL_IME_UpdateTextRect(NULL);
                 }
 #endif
             }
@@ -987,7 +1003,7 @@ X11_DispatchEvent(_THIS)
             SDL_Mouse *mouse = SDL_GetMouse();
             if(!mouse->relative_mode || mouse->relative_mode_warp) {
 #ifdef DEBUG_MOTION
-                printf("window %p: X11 motion: %d,%d\n", xevent.xmotion.x, xevent.xmotion.y);
+                printf("window %p: X11 motion: %d,%d\n", data, xevent.xmotion.x, xevent.xmotion.y);
 #endif
 
                 SDL_SendMouseMotion(data->window, 0, 0, xevent.xmotion.x, xevent.xmotion.y);
@@ -997,9 +1013,13 @@ X11_DispatchEvent(_THIS)
 
     case ButtonPress:{
             int xticks = 0, yticks = 0;
+#ifdef DEBUG_XEVENTS
+            printf("window %p: ButtonPress (X11 button = %d)\n", data, xevent.xbutton.button);
+#endif
             if (X11_IsWheelEvent(display,&xevent,&xticks, &yticks)) {
                 SDL_SendMouseWheel(data->window, 0, xticks, yticks, SDL_MOUSEWHEEL_NORMAL);
             } else {
+                SDL_bool ignore_click = SDL_FALSE;
                 int button = xevent.xbutton.button;
                 if(button == Button1) {
                     if (ProcessHitTest(_this, data, &xevent)) {
@@ -1012,7 +1032,16 @@ X11_DispatchEvent(_THIS)
                        => subtract (8-SDL_BUTTON_X1) to get value SDL expects */
                     button -= (8-SDL_BUTTON_X1);
                 }
-                SDL_SendMouseButton(data->window, 0, SDL_PRESSED, button);
+                if (data->last_focus_event_time) {
+                    const int X11_FOCUS_CLICK_TIMEOUT = 10;
+                    if (!SDL_TICKS_PASSED(SDL_GetTicks(), data->last_focus_event_time + X11_FOCUS_CLICK_TIMEOUT)) {
+                        ignore_click = !SDL_GetHintBoolean(SDL_HINT_MOUSE_FOCUS_CLICKTHROUGH, SDL_FALSE);
+                    }
+                    data->last_focus_event_time = 0;
+                }
+                if (!ignore_click) {
+                    SDL_SendMouseButton(data->window, 0, SDL_PRESSED, button);
+                }
             }
             X11_UpdateUserTime(data, xevent.xbutton.time);
         }
@@ -1022,7 +1051,10 @@ X11_DispatchEvent(_THIS)
             int button = xevent.xbutton.button;
             /* The X server sends a Release event for each Press for wheels. Ignore them. */
             int xticks = 0, yticks = 0;
-            if (!X11_IsWheelEvent(display,&xevent,&xticks, &yticks)) {
+#ifdef DEBUG_XEVENTS
+            printf("window %p: ButtonRelease (X11 button = %d)\n", data, xevent.xbutton.button);
+#endif
+            if (!X11_IsWheelEvent(display, &xevent, &xticks, &yticks)) {
                 if (button > 7) {
                     /* see explanation at case ButtonPress */
                     button -= (8-SDL_BUTTON_X1);
@@ -1375,9 +1407,9 @@ X11_PumpEvents(_THIS)
         X11_DispatchEvent(_this);
     }
 
-#ifdef SDL_USE_IBUS
+#ifdef SDL_USE_IME
     if(SDL_GetEventState(SDL_TEXTINPUT) == SDL_ENABLE){
-        SDL_IBus_PumpEvents();
+        SDL_IME_PumpEvents();
     }
 #endif
 

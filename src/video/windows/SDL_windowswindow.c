@@ -478,7 +478,8 @@ WIN_HideWindow(_THIS, SDL_Window * window)
 void
 WIN_RaiseWindow(_THIS, SDL_Window * window)
 {
-    WIN_SetWindowPositionInternal(_this, window, SWP_NOCOPYBITS | SWP_NOMOVE | SWP_NOSIZE);
+    HWND hwnd = ((SDL_WindowData *) window->driverdata)->hwnd;
+    SetForegroundWindow(hwnd);
 }
 
 void
@@ -517,6 +518,22 @@ WIN_SetWindowBordered(_THIS, SDL_Window * window, SDL_bool bordered)
     SetWindowLong(hwnd, GWL_STYLE, style);
     WIN_SetWindowPositionInternal(_this, window, SWP_NOCOPYBITS | SWP_FRAMECHANGED | SWP_NOZORDER | SWP_NOACTIVATE);
     data->in_border_change = SDL_FALSE;
+}
+
+void
+WIN_SetWindowResizable(_THIS, SDL_Window * window, SDL_bool resizable)
+{
+    SDL_WindowData *data = (SDL_WindowData *)window->driverdata;
+    HWND hwnd = data->hwnd;
+    DWORD style = GetWindowLong(hwnd, GWL_STYLE);
+
+    if (resizable) {
+        style |= STYLE_RESIZABLE;
+    } else {
+        style &= ~STYLE_RESIZABLE;
+    }
+
+    SetWindowLong(hwnd, GWL_STYLE, style);
 }
 
 void

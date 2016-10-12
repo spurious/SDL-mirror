@@ -24,6 +24,7 @@
 
 /* Win32 thread management routines for SDL */
 
+#include "SDL_hints.h"
 #include "SDL_thread.h"
 #include "../SDL_thread_c.h"
 #include "../SDL_systhread.h"
@@ -32,6 +33,10 @@
 #ifndef SDL_PASSED_BEGINTHREAD_ENDTHREAD
 /* We'll use the C library from this DLL */
 #include <process.h>
+
+#ifndef STACK_SIZE_PARAM_IS_A_RESERVATION
+#define STACK_SIZE_PARAM_IS_A_RESERVATION 0x00010000
+#endif
 
 /* Cygwin gcc-3 ... MingW64 (even with a i386 host) does this like MSVC. */
 #if (defined(__MINGW32__) && (__GNUC__ < 4))
@@ -163,8 +168,14 @@ void
 SDL_SYS_SetupThread(const char *name)
 {
     if ((name != NULL) && IsDebuggerPresent()) {
-        /* This magic tells the debugger to name a thread if it's listening. */
         THREADNAME_INFO inf;
+
+        /* C# and friends will try to catch this Exception, let's avoid it. */
+        if (SDL_GetHintBoolean(SDL_HINT_WINDOWS_DISABLE_THREAD_NAMING, SDL_FALSE)) {
+            return;
+        }
+
+        /* This magic tells the debugger to name a thread if it's listening. */
         SDL_zero(inf);
         inf.dwType = 0x1000;
         inf.szName = name;

@@ -358,22 +358,26 @@ SDL_PrivateSendMouseButton(SDL_Window * window, SDL_MouseID mouseID, Uint8 state
 
     if (clicks < 0) {
         SDL_MouseClickState *clickstate = GetMouseClickState(mouse, button);
-        if (state == SDL_PRESSED) {
-            Uint32 now = SDL_GetTicks();
+        if (clickstate) {
+            if (state == SDL_PRESSED) {
+                Uint32 now = SDL_GetTicks();
 
-            if (SDL_TICKS_PASSED(now, clickstate->last_timestamp + SDL_double_click_time) ||
-                SDL_abs(mouse->x - clickstate->last_x) > SDL_double_click_radius ||
-                SDL_abs(mouse->y - clickstate->last_y) > SDL_double_click_radius) {
-                clickstate->click_count = 0;
+                if (SDL_TICKS_PASSED(now, clickstate->last_timestamp + SDL_double_click_time) ||
+                    SDL_abs(mouse->x - clickstate->last_x) > SDL_double_click_radius ||
+                    SDL_abs(mouse->y - clickstate->last_y) > SDL_double_click_radius) {
+                    clickstate->click_count = 0;
+                }
+                clickstate->last_timestamp = now;
+                clickstate->last_x = mouse->x;
+                clickstate->last_y = mouse->y;
+                if (clickstate->click_count < 255) {
+                    ++clickstate->click_count;
+                }
             }
-            clickstate->last_timestamp = now;
-            clickstate->last_x = mouse->x;
-            clickstate->last_y = mouse->y;
-            if (clickstate->click_count < 255) {
-                ++clickstate->click_count;
-            }
+            clicks = clickstate->click_count;
+        } else {
+            clicks = 1;
         }
-        clicks = clickstate->click_count;
     }
 
     /* Post the event, if desired */
@@ -560,21 +564,11 @@ SDL_WarpMouseGlobal(int x, int y)
 static SDL_bool
 ShouldUseRelativeModeWarp(SDL_Mouse *mouse)
 {
-    const char *hint;
-
     if (!mouse->SetRelativeMouseMode) {
         return SDL_TRUE;
     }
 
-    hint = SDL_GetHint(SDL_HINT_MOUSE_RELATIVE_MODE_WARP);
-    if (hint) {
-        if (*hint == '0') {
-            return SDL_FALSE;
-        } else {
-            return SDL_TRUE;
-        }
-    }
-    return SDL_FALSE;
+    return SDL_GetHintBoolean(SDL_HINT_MOUSE_RELATIVE_MODE_WARP, SDL_FALSE);
 }
 
 int

@@ -576,14 +576,12 @@ X11_CreateWindow(_THIS, SDL_Window * window)
     {
         Atom protocols[3];
         int proto_count = 0;
-        const char *ping_hint;
 
         protocols[proto_count++] = data->WM_DELETE_WINDOW; /* Allow window to be deleted by the WM */
         protocols[proto_count++] = data->WM_TAKE_FOCUS; /* Since we will want to set input focus explicitly */
 
-        ping_hint = SDL_GetHint(SDL_HINT_VIDEO_X11_NET_WM_PING);
         /* Default to using ping if there is no hint */
-        if (!ping_hint || SDL_atoi(ping_hint)) {
+        if (SDL_GetHintBoolean(SDL_HINT_VIDEO_X11_NET_WM_PING, SDL_TRUE)) {
             protocols[proto_count++] = data->_NET_WM_PING; /* Respond so WM knows we're alive */
         }
 
@@ -979,6 +977,44 @@ X11_SetWindowBordered(_THIS, SDL_Window * window, SDL_bool bordered)
     X11_XSync(display, False);
     X11_XCheckIfEvent(display, &event, &isUnmapNotify, (XPointer)&data->xwindow);
     X11_XCheckIfEvent(display, &event, &isMapNotify, (XPointer)&data->xwindow);
+}
+
+void
+X11_SetWindowResizable(_THIS, SDL_Window * window, SDL_bool resizable)
+{
+    SDL_WindowData *data = (SDL_WindowData *) window->driverdata;
+    Display *display = data->videodata->display;
+
+    XSizeHints *sizehints = X11_XAllocSizeHints();
+    long userhints;
+
+    X11_XGetWMNormalHints(display, data->xwindow, sizehints, &userhints);
+
+    if (resizable) {
+        /* FIXME: Is there a better way to get max window size from X? -flibit */
+        const int maxsize = 0x7FFFFFFF;
+        sizehints->min_width = window->min_w;
+        sizehints->min_height = window->min_h;
+        sizehints->max_width = (window->max_w == 0) ? maxsize : window->max_w;
+        sizehints->max_height = (window->max_h == 0) ? maxsize : window->max_h;
+    } else {
+        sizehints->min_width = window->w;
+        sizehints->min_height = window->h;
+        sizehints->max_width = window->w;
+        sizehints->max_height = window->h;
+    }
+    sizehints->flags |= PMinSize | PMaxSize;
+
+    X11_XSetWMNormalHints(display, data->xwindow, sizehints);
+
+    X11_XFree(sizehints);
+
+    /* See comment in X11_SetWindowSize. */
+    X11_XResizeWindow(display, data->xwindow, window->w, window->h);
+    X11_XMoveWindow(display, data->xwindow, window->x - data->border_left, window->y - data->border_top);
+    X11_XRaiseWindow(display, data->xwindow);
+
+    X11_XFlush(display);
 }
 
 void
@@ -1439,7 +1475,6 @@ X11_SetWindowGrab(_THIS, SDL_Window * window, SDL_bool grabbed)
     Display *display = data->videodata->display;
     SDL_bool oldstyle_fullscreen;
     SDL_bool grab_keyboard;
-    const char *hint;
 
     /* ICCCM2.0-compliant window managers can handle fullscreen windows
        If we're using XVidMode to change resolution we need to confine
@@ -1463,8 +1498,7 @@ X11_SetWindowGrab(_THIS, SDL_Window * window, SDL_bool grabbed)
         X11_XRaiseWindow(display, data->xwindow);
 
         /* Now grab the keyboard */
-        hint = SDL_GetHint(SDL_HINT_GRAB_KEYBOARD);
-        if (hint && SDL_atoi(hint)) {
+        if (SDL_GetHintBoolean(SDL_HINT_GRAB_KEYBOARD, SDL_FALSE)) {
             grab_keyboard = SDL_TRUE;
         } else {
             /* We need to do this with the old style override_redirect

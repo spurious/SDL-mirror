@@ -57,7 +57,7 @@
 #endif
 
 #include "../../core/linux/SDL_dbus.h"
-#include "../../core/linux/SDL_ibus.h"
+#include "../../core/linux/SDL_ime.h"
 
 #include "SDL_x11dyn.h"
 
@@ -129,6 +129,10 @@ typedef struct SDL_VideoData
     SDL_bool global_mouse_changed;
     SDL_Point global_mouse_position;
     Uint32 global_mouse_buttons;
+
+#if SDL_VIDEO_DRIVER_X11_HAS_XKBKEYCODETOKEYSYM
+    XkbDescPtr xkb;
+#endif
 } SDL_VideoData;
 
 extern SDL_bool X11_UseDirectColorVisuals(void);

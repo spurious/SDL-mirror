@@ -39,6 +39,10 @@
 #include "SDL_x11opengles.h"
 #endif
 
+#ifdef X_HAVE_UTF8_STRING
+#include <locale.h>
+#endif
+
 /* Initialization/Query functions */
 static int X11_VideoInit(_THIS);
 static void X11_VideoQuit(_THIS);
@@ -243,6 +247,7 @@ X11_CreateDevice(int devindex)
     device->MinimizeWindow = X11_MinimizeWindow;
     device->RestoreWindow = X11_RestoreWindow;
     device->SetWindowBordered = X11_SetWindowBordered;
+    device->SetWindowResizable = X11_SetWindowResizable;
     device->SetWindowFullscreen = X11_SetWindowFullscreen;
     device->SetWindowGammaRamp = X11_SetWindowGammaRamp;
     device->SetWindowGrab = X11_SetWindowGrab;
@@ -285,7 +290,7 @@ X11_CreateDevice(int devindex)
     device->StartTextInput = X11_StartTextInput;
     device->StopTextInput = X11_StopTextInput;
     device->SetTextInputRect = X11_SetTextInputRect;
-    
+
     device->free = X11_DeleteDevice;
 
     return device;
@@ -386,8 +391,57 @@ X11_VideoInit(_THIS)
     /* Open a connection to the X input manager */
 #ifdef X_HAVE_UTF8_STRING
     if (SDL_X11_HAVE_UTF8) {
-        data->im =
-            X11_XOpenIM(data->display, NULL, data->classname, data->classname);
+        /* Set the locale, and call XSetLocaleModifiers before XOpenIM so that 
+           Compose keys will work correctly. */
+        char *prev_locale = setlocale(LC_ALL, NULL);
+        char *prev_xmods  = X11_XSetLocaleModifiers(NULL);
+        const char *new_xmods = "";
+        const char *env_xmods = SDL_getenv("XMODIFIERS");
+        SDL_bool has_dbus_ime_support = SDL_FALSE;
+
+        if (prev_locale) {
+            prev_locale = SDL_strdup(prev_locale);
+        }
+
+        if (prev_xmods) {
+            prev_xmods = SDL_strdup(prev_xmods);
+        }
+
+        /* IBus resends some key events that were filtered by XFilterEvents
+           when it is used via XIM which causes issues. Prevent this by forcing
+           @im=none if XMODIFIERS contains @im=ibus. IBus can still be used via 
+           the DBus implementation, which also has support for pre-editing. */
+#ifdef HAVE_IBUS_IBUS_H
+        if (env_xmods && SDL_strstr(env_xmods, "@im=ibus") != NULL) {
+            has_dbus_ime_support = SDL_TRUE;
+        }
+#endif
+#ifdef HAVE_FCITX_FRONTEND_H
+        if (env_xmods && SDL_strstr(env_xmods, "@im=fcitx") != NULL) {
+            has_dbus_ime_support = SDL_TRUE;
+        }
+#endif
+        if (has_dbus_ime_support) {
+            new_xmods = "@im=none";
+        }
+
+        setlocale(LC_ALL, "");
+        X11_XSetLocaleModifiers(new_xmods);
+
+        data->im = X11_XOpenIM(data->display, NULL, data->classname, data->classname);
+
+        /* Reset the locale + X locale modifiers back to how they were,
+           locale first because the X locale modifiers depend on it. */
+        setlocale(LC_ALL, prev_locale);
+        X11_XSetLocaleModifiers(prev_xmods);
+
+        if (prev_locale) {
+            SDL_free(prev_locale);
+        }
+
+        if (prev_xmods) {
+            SDL_free(prev_xmods);
+        }
     }
 #endif
 
