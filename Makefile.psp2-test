@@ -1,0 +1,40 @@
+TITLE_ID = VSDL00009
+TARGET   = vitasdl
+OBJS     = test/testsprite.o
+
+LIBS = ./libSDL.a -lpsp2shell -lvita2d -lSceDisplay_stub -lSceGxm_stub \
+		-lSceSysmodule_stub -lSceCtrl_stub -lScePgf_stub -lSceNetCtl_stub \
+		-lSceNet_stub -lScePower_stub -lSceKernel_stub -lSceCommonDialog_stub \
+		-lSceAudio_stub -lSceAppMgr_stub -lpng -ljpeg -lz -lm -lc
+
+PREFIX  = arm-vita-eabi
+CC      = $(PREFIX)-gcc
+CFLAGS  = -Wl,-q -Wall -O3 -D__PSP2__ -Iinclude -I$(VITASDK)/arm-vita-eabi/include
+ASFLAGS = $(CFLAGS)
+
+all: $(TARGET).vpk
+
+%.vpk: eboot.bin
+	vita-mksfoex -s TITLE_ID=$(TITLE_ID) "$(TARGET)" param.sfo
+	vita-pack-vpk -s param.sfo -b eboot.bin $@
+
+eboot.bin: $(TARGET).velf
+	vita-make-fself $< $@
+
+%.velf: %.elf
+	vita-elf-create $< $@
+
+$(TARGET).elf: $(OBJS)
+	$(CC) $(CFLAGS) $^ $(LIBS) -o $@
+
+clean:
+	@rm -rf $(TARGET).vpk $(TARGET).velf $(TARGET).elf $(OBJS) \
+		eboot.bin param.sfo
+
+vpksend: $(TARGET).vpk
+	curl -T $(TARGET).vpk ftp://$(PSVITAIP):1337/ux0:/
+	@echo "Sent."
+
+send: eboot.bin
+	curl -T eboot.bin ftp://$(PSVITAIP):1337/ux0:/app/$(TITLE_ID)/
+	@echo "Sent."

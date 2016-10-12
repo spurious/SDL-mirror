@@ -19,29 +19,27 @@
     Sam Lantinga
     slouken@libsdl.org
 */
+#include "SDL_config.h"
 
-#ifndef _SDL_config_h
-#define _SDL_config_h
+/* Being a null driver, there's no event stream. We just define stubs for
+   most of the API. */
 
-#include "SDL_platform.h"
+#include "SDL.h"
+#include "../../events/SDL_sysevents.h"
+#include "../../events/SDL_events_c.h"
 
-/* Add any platform that doesn't build using the configure system */
-#if defined(__DREAMCAST__)
-#include "SDL_config_dreamcast.h"
-#elif defined(__MACOS__)
-#include "SDL_config_macos.h"
-#elif defined(__MACOSX__)
-#include "SDL_config_macosx.h"
-#elif defined(__SYMBIAN32__)
-#include "SDL_config_symbian.h"  /* must be before win32! */
-#elif defined(__WIN32__)
-#include "SDL_config_win32.h"
-#elif defined(__OS2__)
-#include "SDL_config_os2.h"
-#elif defined(__PSP2__)
-#include "SDL_config_psp2.h"
-#else
-#include "SDL_config_minimal.h"
-#endif /* platform config */
+#include "SDL_psp2video.h"
+#include "SDL_psp2events_c.h"
 
-#endif /* _SDL_config_h */
+void PSP2_PumpEvents(_THIS)
+{
+	/* do nothing. */
+}
+
+void PSP2_InitOSKeymap(_THIS)
+{
+	/* do nothing. */
+}
+
+/* end of SDL_psp2events.c ... */
+

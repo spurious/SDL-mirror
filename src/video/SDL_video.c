@@ -126,6 +126,9 @@ static VideoBootStrap *bootstrap[] = {
 #if SDL_VIDEO_DRIVER_CACA
 	&CACA_bootstrap,
 #endif
+#if SDL_VIDEO_DRIVER_PSP2
+	&PSP2_bootstrap,
+#endif
 #if SDL_VIDEO_DRIVER_DUMMY
 	&DUMMY_bootstrap,
 #endif
