@@ -44,3 +44,4 @@ $(CONFIG_H):
 
 clean:
 	rm -f $(TARGET) $(OBJECTS)
+	make -f Makefile.psp2-test clean
