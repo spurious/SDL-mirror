@@ -344,11 +344,11 @@ struct SDL_VideoDevice
     /* Data private to this driver */
     void *driverdata;
     struct SDL_GLDriverData *gl_data;
-    
+
 #if SDL_VIDEO_OPENGL_EGL
     struct SDL_EGL_VideoData *egl_data;
 #endif
-    
+
 #if SDL_VIDEO_OPENGL_ES || SDL_VIDEO_OPENGL_ES2
     struct SDL_PrivateGLESData *gles_data;
 #endif
@@ -398,6 +398,9 @@ extern VideoBootStrap Android_bootstrap;
 #endif
 #if SDL_VIDEO_DRIVER_PSP
 extern VideoBootStrap PSP_bootstrap;
+#endif
+#if SDL_VIDEO_DRIVER_VITA
+extern VideoBootStrap VITA_bootstrap;
 #endif
 #if SDL_VIDEO_DRIVER_RPI
 extern VideoBootStrap RPI_bootstrap;

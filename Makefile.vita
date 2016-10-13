@@ -1,0 +1,98 @@
+# SDL port by xerpi
+
+TARGET_LIB = libSDL2.a
+OBJS= src/SDL.o \
+      src/SDL_assert.o \
+      src/SDL_error.o \
+      src/SDL_hints.o \
+      src/SDL_log.o \
+      src/atomic/SDL_atomic.o \
+      src/atomic/SDL_spinlock.o \
+      src/audio/SDL_audio.o \
+      src/audio/SDL_audiocvt.o \
+      src/audio/SDL_audiodev.o \
+      src/audio/SDL_audiotypecvt.o \
+      src/audio/SDL_mixer.o \
+      src/audio/SDL_wave.o \
+      src/audio/vita/SDL_vitaaudio.o \
+      src/cpuinfo/SDL_cpuinfo.o \
+      src/events/SDL_clipboardevents.o \
+      src/events/SDL_dropevents.o \
+      src/events/SDL_events.o \
+      src/events/SDL_gesture.o \
+      src/events/SDL_keyboard.o \
+      src/events/SDL_mouse.o \
+      src/events/SDL_quit.o \
+      src/events/SDL_touch.o \
+      src/events/SDL_windowevents.o \
+      src/file/SDL_rwops.o \
+      src/haptic/SDL_haptic.o \
+      src/haptic/dummy/SDL_syshaptic.o \
+      src/joystick/SDL_joystick.o \
+      src/joystick/SDL_gamecontroller.o \
+      src/joystick/vita/SDL_sysjoystick.o \
+      src/power/SDL_power.o \
+      src/power/vita/SDL_syspower.o \
+      src/filesystem/dummy/SDL_sysfilesystem.o \
+      src/render/SDL_render.o \
+      src/render/SDL_yuv_sw.o \
+      src/render/vita/SDL_render_vita.o \
+      src/render/software/SDL_blendfillrect.o \
+      src/render/software/SDL_blendline.o \
+      src/render/software/SDL_blendpoint.o \
+      src/render/software/SDL_drawline.o \
+      src/render/software/SDL_drawpoint.o \
+      src/render/software/SDL_render_sw.o \
+      src/render/software/SDL_rotate.o \
+      src/stdlib/SDL_getenv.o \
+      src/stdlib/SDL_iconv.o \
+      src/stdlib/SDL_malloc.o \
+      src/stdlib/SDL_qsort.o \
+      src/stdlib/SDL_stdlib.o \
+      src/stdlib/SDL_string.o \
+      src/thread/SDL_thread.o \
+      src/thread/vita/SDL_syssem.o \
+      src/thread/vita/SDL_systhread.o \
+      src/thread/vita/SDL_sysmutex.o \
+      src/thread/vita/SDL_syscond.o \
+      src/thread/generic/SDL_systls.o \
+      src/timer/SDL_timer.o \
+      src/timer/vita/SDL_systimer.o \
+      src/video/SDL_RLEaccel.o \
+      src/video/SDL_blit.o \
+      src/video/SDL_blit_0.o \
+      src/video/SDL_blit_1.o \
+      src/video/SDL_blit_A.o \
+      src/video/SDL_blit_N.o \
+      src/video/SDL_blit_auto.o \
+      src/video/SDL_blit_copy.o \
+      src/video/SDL_blit_slow.o \
+      src/video/SDL_bmp.o \
+      src/video/SDL_clipboard.o \
+      src/video/SDL_fillrect.o \
+      src/video/SDL_pixels.o \
+      src/video/SDL_rect.o \
+      src/video/SDL_stretch.o \
+      src/video/SDL_surface.o \
+      src/video/SDL_video.o \
+      src/video/vita/SDL_vitavideo.o \
+      src/video/vita/SDL_vitamouse.o
+
+PREFIX  = arm-vita-eabi
+CC      = $(PREFIX)-gcc
+AR      = $(PREFIX)-gcc-ar
+CFLAGS  = -Wl,-q -Wall -O3 -Iinclude
+ASFLAGS = $(CFLAGS)
+
+$(TARGET_LIB): $(OBJS)
+	$(AR) rcs $@ $^
+
+clean:
+	@rm -rf $(TARGET_LIB) $(OBJS)
+
+install: $(TARGET_LIB)
+	@cp  $(TARGET_LIB) $(VITASDK)/arm-vita-eabi/lib
+	@mkdir -p "$(VITASDK)/arm-vita-eabi/include/SDL2"
+	@cp include/*.h "$(VITASDK)/arm-vita-eabi/include/SDL2"
+	@echo "Installed!"
+
