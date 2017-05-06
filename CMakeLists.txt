@@ -1592,6 +1592,7 @@ if(SDL_SHARED)
   endif()
   set(_INSTALL_LIBS "SDL2" ${_INSTALL_LIBS})
   target_link_libraries(SDL2 ${EXTRA_LIBS} ${EXTRA_LDFLAGS})
+  target_include_directories(SDL2 PUBLIC $<BUILD_INTERFACE:${SDL2_SOURCE_DIR}/include>)
 endif()
 
 if(SDL_STATIC)
@@ -1608,6 +1609,7 @@ if(SDL_STATIC)
   # libraries - do we need to consider this?
   set(_INSTALL_LIBS "SDL2-static" ${_INSTALL_LIBS})
   target_link_libraries(SDL2-static ${EXTRA_LIBS} ${EXTRA_LDFLAGS})
+  target_include_directories(SDL2-static PUBLIC $<BUILD_INTERFACE:${SDL2_SOURCE_DIR}/include>)
 endif()
 
 ##### Installation targets #####
