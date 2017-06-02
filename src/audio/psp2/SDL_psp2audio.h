@@ -19,29 +19,28 @@
     Sam Lantinga
     slouken@libsdl.org
 */
+#include "SDL_config.h"
 
-#ifndef _SDL_config_h
-#define _SDL_config_h
+#ifndef _SDL_psp2audio_h
+#define _SDL_psp2audio_h
 
-#include "SDL_platform.h"
+#include "../SDL_sysaudio.h"
 
-/* Add any platform that doesn't build using the configure system */
-#if defined(__DREAMCAST__)
-#include "SDL_config_dreamcast.h"
-#elif defined(__MACOS__)
-#include "SDL_config_macos.h"
-#elif defined(__MACOSX__)
-#include "SDL_config_macosx.h"
-#elif defined(__SYMBIAN32__)
-#include "SDL_config_symbian.h"  /* must be before win32! */
-#elif defined(__WIN32__)
-#include "SDL_config_win32.h"
-#elif defined(__OS2__)
-#include "SDL_config_os2.h"
-#elif defined(__PSP2__)
-#include "SDL_config_psp2.h"
-#else
-#include "SDL_config_minimal.h"
-#endif /* platform config */
+/* Hidden "this" pointer for the video functions */
+#define _THIS	SDL_AudioDevice *this
 
-#endif /* _SDL_config_h */
+#define NUM_BUFFERS 2
+
+struct SDL_PrivateAudioData {
+	/* The file descriptor for the audio device */
+    /* The hardware output channel. */
+    int     channel;
+    /* The raw allocated mixing buffer. */
+    Uint8   *rawbuf;
+    /* Individual mixing buffers. */
+    Uint8   *mixbufs[NUM_BUFFERS];
+    /* Index of the next available mixing buffer. */
+    int     next_buffer;
+};
+
+#endif /* _SDL_psp2audio_h */

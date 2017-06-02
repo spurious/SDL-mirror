@@ -19,29 +19,15 @@
     Sam Lantinga
     slouken@libsdl.org
 */
+#include "SDL_config.h"
 
-#ifndef _SDL_config_h
-#define _SDL_config_h
+#include "SDL_psp2video.h"
 
-#include "SDL_platform.h"
+/* Variables and functions exported by SDL_sysevents.c to other parts
+   of the native video subsystem (SDL_sysvideo.c)
+*/
+extern void PSP2_InitOSKeymap(_THIS);
+extern void PSP2_PumpEvents(_THIS);
 
-/* Add any platform that doesn't build using the configure system */
-#if defined(__DREAMCAST__)
-#include "SDL_config_dreamcast.h"
-#elif defined(__MACOS__)
-#include "SDL_config_macos.h"
-#elif defined(__MACOSX__)
-#include "SDL_config_macosx.h"
-#elif defined(__SYMBIAN32__)
-#include "SDL_config_symbian.h"  /* must be before win32! */
-#elif defined(__WIN32__)
-#include "SDL_config_win32.h"
-#elif defined(__OS2__)
-#include "SDL_config_os2.h"
-#elif defined(__PSP2__)
-#include "SDL_config_psp2.h"
-#else
-#include "SDL_config_minimal.h"
-#endif /* platform config */
+/* end of SDL_psp2events_c.h ... */
 
-#endif /* _SDL_config_h */
