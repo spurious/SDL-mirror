@@ -115,6 +115,8 @@ typedef VkSurfaceKHR SDL_vulkanSurface; /* for compatibility with Tizen */
  */
 extern DECLSPEC int SDLCALL SDL_Vulkan_LoadLibrary(const char *path);
 
+extern DECLSPEC int SDLCALL SDL_Vulkan_Init(void* vkGetInstanceProcAddr);
+
 /**
  *  \brief Get the address of the \c vkGetInstanceProcAddr function.
  *

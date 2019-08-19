@@ -4084,6 +4084,30 @@ int SDL_Vulkan_LoadLibrary(const char *path)
     return retval;
 }
 
+int SDL_Vulkan_Init(void* vkGetInstanceProcAddr)
+{
+    int retval;
+    if (!_this) {
+        SDL_UninitializedVideo();
+        return -1;
+    }
+    if (_this->vulkan_config.loader_loaded) {
+        retval = 0;
+    } else {
+        if (!_this->Vulkan_Init || !_this->Vulkan_DefaultLoader) {
+            return SDL_SetError("Vulkan support is either not configured in SDL "
+                                "or not available in current SDL video driver "
+                                "(%s) or platform", _this->name);
+        }
+        retval = _this->Vulkan_Init(_this, vkGetInstanceProcAddr);
+    }
+    if (retval == 0) {
+        _this->vulkan_config.loader_handle = _this->Vulkan_DefaultLoader(_this);
+        _this->vulkan_config.loader_loaded++;
+    }
+    return retval;
+}
+
 void *SDL_Vulkan_GetVkGetInstanceProcAddr(void)
 {
     if (!_this) {

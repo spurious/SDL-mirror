@@ -35,6 +35,8 @@
 #if SDL_VIDEO_VULKAN && SDL_VIDEO_DRIVER_UIKIT
 
 int UIKit_Vulkan_LoadLibrary(_THIS, const char *path);
+int UIKit_Vulkan_Init(_THIS, PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr);
+void* UIKit_Vulkan_DefaultLoader(_THIS);
 void UIKit_Vulkan_UnloadLibrary(_THIS);
 SDL_bool UIKit_Vulkan_GetInstanceExtensions(_THIS,
                                           SDL_Window *window,

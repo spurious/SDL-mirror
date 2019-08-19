@@ -126,6 +126,8 @@ UIKit_CreateDevice(int devindex)
 
 #if SDL_VIDEO_VULKAN
         device->Vulkan_LoadLibrary = UIKit_Vulkan_LoadLibrary;
+        device->Vulkan_Init = UIKit_Vulkan_Init;
+        device->Vulkan_DefaultLoader = UIKit_Vulkan_DefaultLoader;
         device->Vulkan_UnloadLibrary = UIKit_Vulkan_UnloadLibrary;
         device->Vulkan_GetInstanceExtensions
                                      = UIKit_Vulkan_GetInstanceExtensions;

@@ -46,10 +46,6 @@
 
 int UIKit_Vulkan_LoadLibrary(_THIS, const char *path)
 {
-    VkExtensionProperties *extensions = NULL;
-    Uint32 extensionCount = 0;
-    SDL_bool hasSurfaceExtension = SDL_FALSE;
-    SDL_bool hasIOSSurfaceExtension = SDL_FALSE;
     PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr = NULL;
 
     if (_this->vulkan_config.loader_handle) {
@@ -89,6 +85,15 @@ int UIKit_Vulkan_LoadLibrary(_THIS, const char *path)
                                     _this->vulkan_config.loader_handle,
                                     "vkGetInstanceProcAddr");
     }
+    return UIKit_Vulkan_Init(_this, vkGetInstanceProcAddr);
+}
+
+int UIKit_Vulkan_Init(_THIS, PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr)
+{
+    VkExtensionProperties *extensions = NULL;
+    Uint32 extensionCount = 0;
+    SDL_bool hasSurfaceExtension = SDL_FALSE;
+    SDL_bool hasIOSSurfaceExtension = SDL_FALSE;
 
     if (!vkGetInstanceProcAddr) {
         SDL_SetError("Failed to find %s in either executable or %s: %s",
@@ -142,6 +147,11 @@ int UIKit_Vulkan_LoadLibrary(_THIS, const char *path)
 fail:
     _this->vulkan_config.loader_handle = NULL;
     return -1;
+}
+
+void* UIKit_Vulkan_DefaultLoader(_THIS)
+{
+    return DEFAULT_HANDLE;
 }
 
 void UIKit_Vulkan_UnloadLibrary(_THIS)
