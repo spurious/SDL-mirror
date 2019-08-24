@@ -233,6 +233,13 @@ SDL_DelFinger(SDL_Touch* touch, SDL_FingerID fingerid)
     return 0;
 }
 
+void SDL_ResetTouch() 
+{
+    finger_touching = SDL_FALSE;
+    track_fingerid = 0;                 // don't really need to reset these, but lets be a bit paranoid.
+    track_touchid = 0;
+}
+
 int
 SDL_SendTouch(SDL_TouchID id, SDL_FingerID fingerid,
               SDL_bool down, float x, float y, float pressure)
