@@ -490,6 +490,7 @@
 #define SDL_GetTouchDevice SDL_GetTouchDevice_REAL
 #define SDL_GetNumTouchFingers SDL_GetNumTouchFingers_REAL
 #define SDL_GetTouchFinger SDL_GetTouchFinger_REAL
+#define SDL_ResetTouch SDL_ResetTouch_REAL
 #define SDL_GetVersion SDL_GetVersion_REAL
 #define SDL_GetRevision SDL_GetRevision_REAL
 #define SDL_GetRevisionNumber SDL_GetRevisionNumber_REAL
