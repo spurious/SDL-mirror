@@ -94,7 +94,7 @@ extern DECLSPEC SDL_Finger * SDLCALL SDL_GetTouchFinger(SDL_TouchID touchID, int
 /**
  *  \brief Reset touch state if gets stuck in a finger-down state.  Useful if exit SDL without existing process
  */
-extern DECLSPEC void SDL_ResetTouch(void);
+extern DECLSPEC void SDLCALL SDL_ResetTouch(void);
 
 /* Ends C function definitions when using C++ */
 #ifdef __cplusplus

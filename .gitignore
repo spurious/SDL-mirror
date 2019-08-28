@@ -1,2 +1,15 @@
 Xcode-iOS/SDL/SDL.xcodeproj/xcuserdata/
 Xcode-iOS/SDL/build/
+VisualC/.vs/SDL/v15/.suo
+*.db
+*.vcxproj
+*.obj
+*.user
+*.log
+*.dll
+*.exp
+*.ilk
+*.lib
+*.pdb
+*.tlog
+*.res
