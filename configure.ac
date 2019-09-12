@@ -20,9 +20,9 @@ dnl Set various version strings - taken gratefully from the GTk sources
 #
 SDL_MAJOR_VERSION=2
 SDL_MINOR_VERSION=0
-SDL_MICRO_VERSION=9
+SDL_MICRO_VERSION=10
 SDL_INTERFACE_AGE=0
-SDL_BINARY_AGE=9
+SDL_BINARY_AGE=10
 SDL_VERSION=$SDL_MAJOR_VERSION.$SDL_MINOR_VERSION.$SDL_MICRO_VERSION
 
 AC_SUBST(SDL_MAJOR_VERSION)
@@ -1329,6 +1329,29 @@ CheckVisibilityHidden()
     fi
 }
 
+dnl See if GCC's -fno-strict-aliasingis supported.
+dnl  Reference: https://bugzilla.libsdl.org/show_bug.cgi?id=4254
+CheckNoStrictAliasing()
+{
+    AC_MSG_CHECKING(for GCC -fno-strict-aliasing option)
+    have_gcc_no_strict_aliasing=no
+
+    save_CFLAGS="$CFLAGS"
+    CFLAGS="$save_CFLAGS -fno-strict-aliasing"
+    AC_TRY_COMPILE([
+    int x = 0;
+    ],[
+    ],[
+    have_gcc_no_strict_aliasing=yes
+    ])
+    AC_MSG_RESULT($have_gcc_no_strict_aliasing)
+    CFLAGS="$save_CFLAGS"
+
+    if test x$have_gcc_no_strict_aliasing = xyes; then
+        EXTRA_CFLAGS="$EXTRA_CFLAGS -fno-strict-aliasing"
+    fi
+}
+
 dnl See if GCC's -mpreferred-stack-boundary is supported.
 dnl  Reference: http://bugzilla.libsdl.org/show_bug.cgi?id=1296
 CheckStackBoundary()
@@ -1527,8 +1550,8 @@ CheckNativeClient()
 CheckRPI()
 {
     AC_ARG_ENABLE(video-rpi,
-AS_HELP_STRING([--enable-video-rpi], [use Raspberry Pi video driver [[default=no]]]),
-                  , enable_video_rpi=no)
+AS_HELP_STRING([--enable-video-rpi], [use Raspberry Pi video driver [[default=yes]]]),
+                  , enable_video_rpi=yes)
     if test x$enable_video = xyes -a x$enable_video_rpi = xyes; then
         PKG_CHECK_MODULES([RPI], [bcm_host brcmegl], video_rpi=yes, video_rpi=no)
 
@@ -2025,10 +2048,13 @@ AS_HELP_STRING([--enable-video-cocoa], [use Cocoa video driver [[default=yes]]])
 
 CheckMETAL()
 {
+    AC_ARG_ENABLE(video-metal,
+AC_HELP_STRING([--enable-video-metal], [include Metal support [[default=yes]]]),
+              , enable_video_metal=yes)
     AC_ARG_ENABLE(render-metal,
 AS_HELP_STRING([--enable-render-metal], [enable the Metal render driver [[default=yes]]]),
                                 , enable_render_metal=yes)
-    if test x$enable_render = xyes -a x$enable_render_metal = xyes; then
+    if test x$enable_video = xyes -a x$enable_video_metal = xyes; then
         save_CFLAGS="$CFLAGS"
         dnl Work around that we don't have Objective-C support in autoconf
         CFLAGS="$CFLAGS -x objective-c"
@@ -2049,10 +2075,14 @@ AS_HELP_STRING([--enable-render-metal], [enable the Metal render driver [[defaul
         CFLAGS="$save_CFLAGS"
         AC_MSG_RESULT($have_metal)
         if test x$have_metal = xyes; then
-            AC_DEFINE(SDL_VIDEO_RENDER_METAL, 1, [ ])
-            SOURCES="$SOURCES $srcdir/src/render/metal/*.m"
+            AC_DEFINE(SDL_VIDEO_METAL, 1, [ ])
+            if test x$enable_render = xyes -a x$enable_render_metal = xyes; then
+                AC_DEFINE(SDL_VIDEO_RENDER_METAL, 1, [ ])
+                SOURCES="$SOURCES $srcdir/src/render/metal/*.m"
+            fi
             SUMMARY_video="${SUMMARY_video} metal"
         else
+            enable_video_metal=no
             enable_render_metal=no
         fi
     fi
@@ -2572,7 +2602,7 @@ AS_HELP_STRING([--enable-ime], [enable IME support [[default=yes]]]),
                   , enable_ime=yes)
     if test x$enable_ime = xyes; then
         AC_DEFINE(SDL_USE_IME, 1, [ ])
-            SOURCES="$SOURCES $srcdir/src/core/linux/SDL_ime.c"
+        SOURCES="$SOURCES $srcdir/src/core/linux/SDL_ime.c"
     fi
 }
 
@@ -3174,28 +3204,80 @@ CheckHIDAPI()
 {
     # The hidraw support doesn't catch Xbox, PS4 and Nintendo controllers,
     # so we'll just use libusb when it's available.
-    #
-    # Except that libusb requires root permissions to open devices, so that's not generally useful, and we'll disable this by default.
+    case "$host" in
+        # libusb does not support iOS
+        arm*-apple-darwin* | *-ios-* )
+            skiplibusb=yes
+            ;;
+        # On the other hand, *BSD specifically uses libusb only
+        *-*-*bsd* )
+            onlylibusb=yes
+            ;;
+    esac
+
     AC_ARG_ENABLE(hidapi,
 AS_HELP_STRING([--enable-hidapi], [use HIDAPI for low level joystick drivers [[default=no]]]),
                   , enable_hidapi=no)
     if test x$enable_joystick = xyes -a x$enable_hidapi = xyes; then
-        PKG_CHECK_MODULES([LIBUSB], [libusb-1.0], have_libusb=yes, have_libusb=no)
-        hidapi_support=no
-        save_CFLAGS="$CFLAGS"
-        CFLAGS="$save_CFLAGS $LIBUSB_CFLAGS"
-        AC_CHECK_HEADER(libusb.h, have_libusb_h=yes)
-        CFLAGS="$save_CFLAGS"
-
-        if test x$have_libusb_h = xyes; then
+        if test x$skiplibusb = xyes; then
             hidapi_support=yes
+        else
+            PKG_CHECK_MODULES([LIBUSB], [libusb-1.0], have_libusb=yes, have_libusb=no)
+            save_CFLAGS="$CFLAGS"
+            CFLAGS="$save_CFLAGS $LIBUSB_CFLAGS"
+            AC_CHECK_HEADER(libusb.h, have_libusb_h=yes)
+            CFLAGS="$save_CFLAGS"
+            if test x$have_libusb_h = xyes; then
+                hidapi_support=yes
+            elif test x$onlylibusb = xyes; then
+                hidapi_support=no
+            else
+                hidapi_support=yes
+            fi
+        fi
+
+        if test x$hidapi_support = xyes; then
             AC_DEFINE(SDL_JOYSTICK_HIDAPI, 1, [ ])
             EXTRA_CFLAGS="$EXTRA_CFLAGS -I$srcdir/src/hidapi/hidapi"
             SOURCES="$SOURCES $srcdir/src/joystick/hidapi/*.c"
-            SOURCES="$SOURCES $srcdir/src/hidapi/libusb/hid.c"
-            EXTRA_CFLAGS="$EXTRA_CFLAGS $LIBUSB_CFLAGS"
-            EXTRA_LDFLAGS="$EXTRA_LDFLAGS $LIBUSB_LIBS"
+
+            if test x$have_libusb_h = xyes; then
+                EXTRA_CFLAGS="$EXTRA_CFLAGS $LIBUSB_CFLAGS"
+                if test x$onlylibusb = xyes; then
+                    SOURCES="$SOURCES $srcdir/src/hidapi/libusb/hid.c"
+                    EXTRA_LDFLAGS="$EXTRA_LDFLAGS $LIBUSB_LIBS"
+                else
+                    if test x$have_loadso != xyes; then
+                        AC_MSG_WARN([You must have SDL_LoadObject() support for dynamic libusb loading])
+                    fi
+                    SOURCES="$SOURCES $srcdir/src/hidapi/SDL_hidapi.c"
+                    # libusb is loaded dynamically, so don't add it to LDFLAGS
+                    libusb_lib=""
+                    case "$host" in
+                        *-*-darwin* )
+                            libusb_lib="libusb-1.0.0.dylib"
+                            ;;
+                        *-*-cygwin* | *-*-mingw32* )
+                            libusb_lib="libusb-1.0.dll"
+                            ;;
+                    esac
+                    if test x$libusb_lib = x; then
+                        libusb_lib=[`find_lib "libusb-1.0.so.*" "" | sed 's/.*\/\(.*\)/\1/; q'`]
+                    fi
+                    AC_DEFINE_UNQUOTED(SDL_LIBUSB_DYNAMIC, "$libusb_lib", [ ])
+                fi
+            else
+                case "$host" in
+                *-*-cygwin* | *-*-mingw32* )
+                    SOURCES="$SOURCES $srcdir/src/hidapi/windows/hid.c"
+                    ;;
+                *-*-darwin* )
+                    SOURCES="$SOURCES $srcdir/src/hidapi/mac/hid.c"
+                    ;;
+                esac
+            fi
         fi
+
         AC_MSG_CHECKING(for hidapi support)
         AC_MSG_RESULT($hidapi_support)
     fi
@@ -3263,6 +3345,7 @@ AS_HELP_STRING([--enable-foregrounding-signal], [number to use for magic foregro
 
 dnl Do this on all platforms, before everything else (other things might want to override it).
 CheckWarnAll
+CheckNoStrictAliasing
 
 dnl Do this for every platform, but for some it doesn't mean anything, but better to catch it here anyhow.
 CheckEventSignals
@@ -3333,6 +3416,7 @@ case "$host" in
         CheckOpenGLESX11
         CheckVulkan
         CheckWayland
+        CheckInputEvents
         CheckLibUDev
         CheckDBus
         CheckIME
@@ -3340,7 +3424,6 @@ case "$host" in
         CheckFcitx
         case $ARCH in
           linux)
-              CheckInputEvents
               CheckInputKD
           ;;
         esac
@@ -3497,6 +3580,7 @@ case "$host" in
         CheckWINDOWSGLES
         CheckVulkan
         CheckDIRECTX
+        CheckHIDAPI
 
         # Set up the core platform files
         SOURCES="$SOURCES $srcdir/src/core/windows/*.c"
@@ -3548,11 +3632,7 @@ AS_HELP_STRING([--enable-render-d3d], [enable the Direct3D render driver [[defau
             else
                 AC_DEFINE(SDL_JOYSTICK_WINMM, 1, [ ])
             fi
-            AC_DEFINE(SDL_JOYSTICK_HIDAPI, 1, [ ])
             SOURCES="$SOURCES $srcdir/src/joystick/windows/*.c"
-            SOURCES="$SOURCES $srcdir/src/joystick/hidapi/*.c"
-            SOURCES="$SOURCES $srcdir/src/hidapi/windows/hid.c"
-            EXTRA_CFLAGS="$EXTRA_CFLAGS -I$srcdir/src/hidapi/hidapi"
             have_joystick=yes
         fi
         if test x$enable_haptic = xyes; then
@@ -3751,7 +3831,7 @@ AS_HELP_STRING([--enable-render-d3d], [enable the Direct3D render driver [[defau
         EXTRA_LDFLAGS="$EXTRA_LDFLAGS -Wl,-framework,QuartzCore"
         EXTRA_LDFLAGS="$EXTRA_LDFLAGS -Wl,-framework,UIKit"
 
-        if test x$enable_render = xyes -a x$enable_render_metal = xyes; then
+        if test x$enable_video_metal = xyes -o x$enable_video_vulkan = xyes; then
             EXTRA_LDFLAGS="$EXTRA_LDFLAGS -Wl,-framework,Metal"
         fi
         ;;
@@ -3779,6 +3859,7 @@ AS_HELP_STRING([--enable-render-d3d], [enable the Direct3D render driver [[defau
         CheckOpenGLX11
         CheckVulkan
         CheckPTHREAD
+        CheckHIDAPI
 
         # Set up files for the audio library
         if test x$enable_audio = xyes; then
@@ -3791,11 +3872,7 @@ AS_HELP_STRING([--enable-render-d3d], [enable the Direct3D render driver [[defau
         # Set up files for the joystick library
         if test x$enable_joystick = xyes; then
             AC_DEFINE(SDL_JOYSTICK_IOKIT, 1, [ ])
-            AC_DEFINE(SDL_JOYSTICK_HIDAPI, 1, [ ])
             SOURCES="$SOURCES $srcdir/src/joystick/darwin/*.c"
-            SOURCES="$SOURCES $srcdir/src/joystick/hidapi/*.c"
-            SOURCES="$SOURCES $srcdir/src/hidapi/mac/hid.c"
-            EXTRA_CFLAGS="$EXTRA_CFLAGS -I$srcdir/src/hidapi/hidapi"
             have_joystick=yes
         fi
         # Set up files for the haptic library
@@ -3836,7 +3913,7 @@ AS_HELP_STRING([--enable-render-d3d], [enable the Direct3D render driver [[defau
         EXTRA_LDFLAGS="$EXTRA_LDFLAGS -Wl,-framework,Carbon"
         EXTRA_LDFLAGS="$EXTRA_LDFLAGS -Wl,-framework,IOKit"
 
-        if test x$enable_render = xyes -a x$enable_render_metal = xyes; then
+        if test x$enable_video_metal = xyes -o x$enable_video_vulkan = xyes; then
             EXTRA_LDFLAGS="$EXTRA_LDFLAGS -Wl,-weak_framework,QuartzCore -Wl,-weak_framework,Metal"
         fi
         ;;

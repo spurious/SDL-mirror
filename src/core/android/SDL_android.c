@@ -24,6 +24,7 @@
 #include "SDL_hints.h"
 #include "SDL_log.h"
 #include "SDL_main.h"
+#include "SDL_timer.h"
 
 #ifdef __ANDROID__
 
@@ -240,6 +241,8 @@ static jmethodID midSetSurfaceViewFormat;
 static jmethodID midSetActivityTitle;
 static jmethodID midSetWindowStyle;
 static jmethodID midSetOrientation;
+static jmethodID midMinimizeWindow;
+static jmethodID midShouldMinimizeOnFocusLoss;
 static jmethodID midGetContext;
 static jmethodID midIsTablet;
 static jmethodID midIsAndroidTV;
@@ -490,6 +493,10 @@ JNIEXPORT void JNICALL SDL_JAVA_INTERFACE(nativeSetupJNI)(JNIEnv *env, jclass cl
                                 "setWindowStyle","(Z)V");
     midSetOrientation = (*env)->GetStaticMethodID(env, mActivityClass,
                                 "setOrientation","(IIZLjava/lang/String;)V");
+    midMinimizeWindow = (*env)->GetStaticMethodID(env, mActivityClass,
+                                "minimizeWindow","()V");
+    midShouldMinimizeOnFocusLoss = (*env)->GetStaticMethodID(env, mActivityClass,
+                                "shouldMinimizeOnFocusLoss","()Z");
     midGetContext = (*env)->GetStaticMethodID(env, mActivityClass,
                                 "getContext","()Landroid/content/Context;");
     midIsTablet = (*env)->GetStaticMethodID(env, mActivityClass,
@@ -532,7 +539,7 @@ JNIEXPORT void JNICALL SDL_JAVA_INTERFACE(nativeSetupJNI)(JNIEnv *env, jclass cl
 
 
     if (!midGetNativeSurface || !midSetSurfaceViewFormat ||
-       !midSetActivityTitle || !midSetWindowStyle || !midSetOrientation || !midGetContext || !midIsTablet || !midIsAndroidTV || !midInitTouch ||
+       !midSetActivityTitle || !midSetWindowStyle || !midSetOrientation || !midMinimizeWindow || !midShouldMinimizeOnFocusLoss || !midGetContext || !midIsTablet || !midIsAndroidTV || !midInitTouch ||
        !midSendMessage || !midShowTextInput || !midIsScreenKeyboardShown ||
        !midClipboardSetText || !midClipboardGetText || !midClipboardHasText ||
        !midOpenAPKExpansionInputStream || !midGetManifestEnvironmentVariables || !midGetDisplayDPI ||
@@ -622,6 +629,17 @@ JNIEXPORT int JNICALL SDL_JAVA_INTERFACE(nativeRunMain)(JNIEnv *env, jclass cls,
 
     library_file = (*env)->GetStringUTFChars(env, library, NULL);
     library_handle = dlopen(library_file, RTLD_GLOBAL);
+
+    if (!library_handle) {
+        /* When deploying android app bundle format uncompressed native libs may not extract from apk to filesystem.
+           In this case we should use lib name without path. https://bugzilla.libsdl.org/show_bug.cgi?id=4739 */
+        const char *library_name = SDL_strrchr(library_file, '/');
+        if (library_name && *library_name) {
+            library_name += 1;
+            library_handle = dlopen(library_name, RTLD_GLOBAL);
+        }
+    }
+
     if (library_handle) {
         const char *function_name;
         SDL_main_func SDL_main;
@@ -703,6 +721,34 @@ JNIEXPORT void JNICALL SDL_JAVA_INTERFACE(onNativeDropFile)(
     SDL_SendDropFile(NULL, path);
     (*env)->ReleaseStringUTFChars(env, filename, path);
     SDL_SendDropComplete(NULL);
+}
+
+/* Lock / Unlock Mutex */
+void Android_ActivityMutex_Lock() {
+    SDL_LockMutex(Android_ActivityMutex);
+}
+
+void Android_ActivityMutex_Unlock() {
+    SDL_UnlockMutex(Android_ActivityMutex);
+}
+
+/* Lock the Mutex when the Activity is in its 'Running' state */
+void Android_ActivityMutex_Lock_Running() {
+    int pauseSignaled = 0;
+    int resumeSignaled = 0;
+
+retry:
+
+    SDL_LockMutex(Android_ActivityMutex);
+
+    pauseSignaled = SDL_SemValue(Android_PauseSem);
+    resumeSignaled = SDL_SemValue(Android_ResumeSem);
+
+    if (pauseSignaled > resumeSignaled) {
+        SDL_UnlockMutex(Android_ActivityMutex);
+        SDL_Delay(50);
+        goto retry;
+    }
 }
 
 /* Set screen resolution */
@@ -1226,11 +1272,6 @@ static void LocalReferenceHolder_Cleanup(struct LocalReferenceHolder *refholder)
     }
 }
 
-static SDL_bool LocalReferenceHolder_IsActive(void)
-{
-    return (SDL_AtomicGet(&s_active) > 0);
-}
-
 ANativeWindow* Android_JNI_GetNativeWindow(void)
 {
     ANativeWindow *anw = NULL;
@@ -1288,6 +1329,18 @@ void Android_JNI_SetOrientation(int w, int h, int resizable, const char *hint)
     jstring jhint = (jstring)((*env)->NewStringUTF(env, (hint ? hint : "")));
     (*env)->CallStaticVoidMethod(env, mActivityClass, midSetOrientation, w, h, (resizable? 1 : 0), jhint);
     (*env)->DeleteLocalRef(env, jhint);
+}
+
+void Android_JNI_MinizeWindow()
+{
+    JNIEnv *env = Android_JNI_GetEnv();
+    (*env)->CallStaticVoidMethod(env, mActivityClass, midMinimizeWindow);
+}
+
+SDL_bool Android_JNI_ShouldMinimizeOnFocusLoss()
+{
+    JNIEnv *env = Android_JNI_GetEnv();
+    return (*env)->CallStaticBooleanMethod(env, mActivityClass, midShouldMinimizeOnFocusLoss);
 }
 
 SDL_bool Android_JNI_GetAccelerometerValues(float values[3])
@@ -1634,7 +1687,7 @@ static SDL_bool Android_JNI_ExceptionOccurred(SDL_bool silent)
     jthrowable exception;
 
     /* Detect mismatch LocalReferenceHolder_Init/Cleanup */
-    SDL_assert(LocalReferenceHolder_IsActive());
+    SDL_assert(SDL_AtomicGet(&s_active) > 0);
 
     exception = (*env)->ExceptionOccurred(env);
     if (exception != NULL) {
@@ -2327,11 +2380,19 @@ int Android_JNI_ShowMessageBox(const SDL_MessageBoxData *messageboxdata, int *bu
     button_texts = (*env)->NewObjectArray(env, messageboxdata->numbuttons,
         clazz, NULL);
     for (i = 0; i < messageboxdata->numbuttons; ++i) {
-        temp = messageboxdata->buttons[i].flags;
+        const SDL_MessageBoxButtonData *sdlButton;
+
+        if (messageboxdata->flags & SDL_MESSAGEBOX_BUTTONS_RIGHT_TO_LEFT) {
+            sdlButton = &messageboxdata->buttons[messageboxdata->numbuttons - 1 - i];
+        } else {
+            sdlButton = &messageboxdata->buttons[i];
+        }
+
+        temp = sdlButton->flags;
         (*env)->SetIntArrayRegion(env, button_flags, i, 1, &temp);
-        temp = messageboxdata->buttons[i].buttonid;
+        temp = sdlButton->buttonid;
         (*env)->SetIntArrayRegion(env, button_ids, i, 1, &temp);
-        text = (*env)->NewStringUTF(env, messageboxdata->buttons[i].text);
+        text = (*env)->NewStringUTF(env, sdlButton->text);
         (*env)->SetObjectArrayElement(env, button_texts, i, text);
         (*env)->DeleteLocalRef(env, text);
     }
@@ -2339,7 +2400,7 @@ int Android_JNI_ShowMessageBox(const SDL_MessageBoxData *messageboxdata, int *bu
     if (messageboxdata->colorScheme) {
         colors = (*env)->NewIntArray(env, SDL_MESSAGEBOX_COLOR_MAX);
         for (i = 0; i < SDL_MESSAGEBOX_COLOR_MAX; ++i) {
-            temp = (0xFF << 24) |
+            temp = (0xFFU << 24) |
                    (messageboxdata->colorScheme->colors[i].r << 16) |
                    (messageboxdata->colorScheme->colors[i].g << 8) |
                    (messageboxdata->colorScheme->colors[i].b << 0);
@@ -2446,7 +2507,8 @@ SDL_bool SDL_IsDeXMode(void)
 void SDL_AndroidBackButton(void)
 {
     JNIEnv *env = Android_JNI_GetEnv();
-    return (*env)->CallStaticVoidMethod(env, mActivityClass, midManualBackButton);
+    (*env)->CallStaticVoidMethod(env, mActivityClass, midManualBackButton);
+    return;
 }
 
 const char * SDL_AndroidGetInternalStoragePath(void)

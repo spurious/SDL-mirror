@@ -80,27 +80,6 @@ extern int SDL_AppleTVRemoteOpenedAsJoystick;
     return self;
 }
 
-- (void)layoutSubviews
-{
-	// Fix for touch ios.
-#if TARGET_OS_IOS
-	// on ios, a metal view gets added to our parent, and covers this for touch events.
-	// So set ourselves to user interact, and siblings false. johna
-	NSArray<UIView*>* subviews = [self.superview subviews];
-	for (int i=0; i<[subviews count]; i++)
-	{
-		UIView *view = [subviews objectAtIndex:i];
-		if (view == self) {
-			[view setUserInteractionEnabled:YES];  // set our user interaction to true.
-		} else {
-			[view setUserInteractionEnabled:NO];  // siblings to false.
-		}
-	}
-#endif
-    [super layoutSubviews];
-}
-
-
 - (void)setSDLWindow:(SDL_Window *)window
 {
     SDL_WindowData *data = nil;
@@ -219,7 +198,7 @@ extern int SDL_AppleTVRemoteOpenedAsJoystick;
         /* FIXME, need to send: int clicks = (int) touch.tapCount; ? */
 
         CGPoint locationInView = [self touchLocation:touch shouldNormalize:YES];
-        SDL_SendTouch(touchId, (SDL_FingerID)((size_t)touch),
+        SDL_SendTouch(touchId, (SDL_FingerID)((size_t)touch), sdlwindow,
                       SDL_TRUE, locationInView.x, locationInView.y, pressure);
     }
 }
@@ -238,7 +217,7 @@ extern int SDL_AppleTVRemoteOpenedAsJoystick;
         /* FIXME, need to send: int clicks = (int) touch.tapCount; ? */
 
         CGPoint locationInView = [self touchLocation:touch shouldNormalize:YES];
-        SDL_SendTouch(touchId, (SDL_FingerID)((size_t)touch),
+        SDL_SendTouch(touchId, (SDL_FingerID)((size_t)touch), sdlwindow,
                       SDL_FALSE, locationInView.x, locationInView.y, pressure);
     }
 }
@@ -260,7 +239,7 @@ extern int SDL_AppleTVRemoteOpenedAsJoystick;
         }
 
         CGPoint locationInView = [self touchLocation:touch shouldNormalize:YES];
-        SDL_SendTouchMotion(touchId, (SDL_FingerID)((size_t)touch),
+        SDL_SendTouchMotion(touchId, (SDL_FingerID)((size_t)touch), sdlwindow,
                             locationInView.x, locationInView.y, pressure);
     }
 }

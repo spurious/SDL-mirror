@@ -1654,6 +1654,12 @@ SDL_RecreateWindow(SDL_Window * window, Uint32 flags)
         } else {
             SDL_GL_UnloadLibrary();
         }
+    } else if (window->flags & SDL_WINDOW_OPENGL) {
+        SDL_GL_UnloadLibrary();
+        if (SDL_GL_LoadLibrary(NULL) < 0) {
+            return -1;
+        }
+        loaded_opengl = SDL_TRUE;
     }
 
     if ((window->flags & SDL_WINDOW_VULKAN) != (flags & SDL_WINDOW_VULKAN)) {
@@ -2653,6 +2659,15 @@ ShouldMinimizeOnFocusLoss(SDL_Window * window)
 #ifdef __MACOSX__
     if (SDL_strcmp(_this->name, "cocoa") == 0) {  /* don't do this for X11, etc */
         if (Cocoa_IsWindowInFullscreenSpace(window)) {
+            return SDL_FALSE;
+        }
+    }
+#endif
+
+#ifdef __ANDROID__
+    {
+        extern SDL_bool Android_JNI_ShouldMinimizeOnFocusLoss(void);
+        if (! Android_JNI_ShouldMinimizeOnFocusLoss()) {
             return SDL_FALSE;
         }
     }
@@ -4189,6 +4204,27 @@ void SDL_Vulkan_GetDrawableSize(SDL_Window * window, int *w, int *h)
         _this->Vulkan_GetDrawableSize(_this, window, w, h);
     } else {
         SDL_GetWindowSize(window, w, h);
+    }
+}
+
+SDL_MetalView
+SDL_Metal_CreateView(SDL_Window * window)
+{
+    CHECK_WINDOW_MAGIC(window, NULL);
+
+    if (_this->Metal_CreateView) {
+        return _this->Metal_CreateView(_this, window);
+    } else {
+        SDL_SetError("Metal is not supported.");
+        return NULL;
+    }
+}
+
+void
+SDL_Metal_DestroyView(SDL_MetalView view)
+{
+    if (_this && view && _this->Metal_DestroyView) {
+        _this->Metal_DestroyView(_this, view);
     }
 }
 

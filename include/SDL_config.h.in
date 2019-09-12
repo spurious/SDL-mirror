@@ -383,6 +383,9 @@
 /* Enable Vulkan support */
 #undef SDL_VIDEO_VULKAN
 
+/* Enable Metal support */
+#undef SDL_VIDEO_METAL
+
 /* Enable system power support */
 #undef SDL_POWER_LINUX
 #undef SDL_POWER_WINDOWS
@@ -411,6 +414,9 @@
 
 /* Enable dynamic udev support */
 #undef SDL_UDEV_DYNAMIC
+
+/* Enable dynamic libusb support */
+#undef SDL_LIBUSB_DYNAMIC
 
 /* Enable dynamic libsamplerate support */
 #undef SDL_LIBSAMPLERATE_DYNAMIC

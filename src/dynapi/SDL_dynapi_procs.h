@@ -716,7 +716,7 @@ SDL_DYNAPI_PROC(SDL_bool,SDL_HasAVX512F,(void),(),return)
 #ifdef __ANDROID__
 SDL_DYNAPI_PROC(SDL_bool,SDL_IsChromebook,(void),(),return)
 SDL_DYNAPI_PROC(SDL_bool,SDL_IsDeXMode,(void),(),return)
-SDL_DYNAPI_PROC(void,SDL_AndroidBackButton,(void),(),return)
+SDL_DYNAPI_PROC(void,SDL_AndroidBackButton,(void),(),)
 #endif
 SDL_DYNAPI_PROC(double,SDL_exp,(double a),(a),return)
 SDL_DYNAPI_PROC(float,SDL_expf,(float a),(a),return)
@@ -771,3 +771,15 @@ SDL_DYNAPI_PROC(SDL_TouchDeviceType,SDL_GetTouchDeviceType,(SDL_TouchID a),(a),r
 #ifdef __IPHONEOS__
 SDL_DYNAPI_PROC(int,SDL_UIKitRunApp,(int a, char *b, SDL_main_func c),(a,b,c),return)
 #endif
+SDL_DYNAPI_PROC(size_t,SDL_SIMDGetAlignment,(void),(),return)
+SDL_DYNAPI_PROC(void*,SDL_SIMDAlloc,(const size_t a),(a),return)
+SDL_DYNAPI_PROC(void,SDL_SIMDFree,(void *a),(a),)
+SDL_DYNAPI_PROC(Sint64,SDL_RWsize,(SDL_RWops *a),(a),return)
+SDL_DYNAPI_PROC(Sint64,SDL_RWseek,(SDL_RWops *a, Sint64 b, int c),(a,b,c),return)
+SDL_DYNAPI_PROC(Sint64,SDL_RWtell,(SDL_RWops *a),(a),return)
+SDL_DYNAPI_PROC(size_t,SDL_RWread,(SDL_RWops *a, void *b, size_t c, size_t d),(a,b,c,d),return)
+SDL_DYNAPI_PROC(size_t,SDL_RWwrite,(SDL_RWops *a, const void *b, size_t c, size_t d),(a,b,c,d),return)
+SDL_DYNAPI_PROC(int,SDL_RWclose,(SDL_RWops *a),(a),return)
+SDL_DYNAPI_PROC(void*,SDL_LoadFile,(const char *a, size_t *b),(a,b),return)
+SDL_DYNAPI_PROC(SDL_MetalView,SDL_Metal_CreateView,(SDL_Window *a),(a),return)
+SDL_DYNAPI_PROC(void,SDL_Metal_DestroyView,(SDL_MetalView a),(a),)

@@ -42,9 +42,9 @@ include(${SDL2_SOURCE_DIR}/cmake/sdlchecks.cmake)
 # set SDL_BINARY_AGE and SDL_INTERFACE_AGE to 0.
 set(SDL_MAJOR_VERSION 2)
 set(SDL_MINOR_VERSION 0)
-set(SDL_MICRO_VERSION 9)
+set(SDL_MICRO_VERSION 10)
 set(SDL_INTERFACE_AGE 0)
-set(SDL_BINARY_AGE 9)
+set(SDL_BINARY_AGE 10)
 set(SDL_VERSION "${SDL_MAJOR_VERSION}.${SDL_MINOR_VERSION}.${SDL_MICRO_VERSION}")
 # the following should match the versions in Xcode project file:
 set(DYLIB_CURRENT_VERSION 10.0.0)
@@ -153,6 +153,27 @@ if(APPLE OR ARCH_64)
 endif()
 if(UNIX OR MINGW OR MSYS)
   set(OPT_DEF_LIBC ON)
+endif()
+
+# The hidraw support doesn't catch Xbox, PS4 and Nintendo controllers,
+#  so we'll just use libusb when it's available. libusb does not support iOS,
+#  so we default to yes on iOS.
+#  TODO: Windows can support libusb, the hid.c file just depends on Unix APIs
+if(WINDOWS OR IOS OR ANDROID)
+  set(HIDAPI_SKIP_LIBUSB TRUE)
+else()
+  set(HIDAPI_SKIP_LIBUSB FALSE)
+endif()
+if (HIDAPI_SKIP_LIBUSB)
+  set(OPT_DEF_HIDAPI ON)
+endif()
+
+# On the other hand, *BSD specifically uses libusb only, so we make a special
+#  case just for them.
+if(FREEBSD OR NETBSD OR OPENBSD OR BSDI)
+  set(HIDAPI_ONLY_LIBUSB TRUE)
+else()
+  set(HIDAPI_ONLY_LIBUSB FALSE)
 endif()
 
 # Compiler info
@@ -264,8 +285,23 @@ if(EMSCRIPTEN)
   set(SDL_DLOPEN_ENABLED_BY_DEFAULT OFF)
 endif()
 
+# When defined, respect CMake's BUILD_SHARED_LIBS setting:
+set(SDL_STATIC_ENABLED_BY_DEFAULT ON)
 if (NOT DEFINED SDL_SHARED_ENABLED_BY_DEFAULT)
+  # ...unless decided already (as for EMSCRIPTEN)
+
+  set(SDL_SHARED_ENABLED_BY_DEFAULT OFF)
+
+  if (NOT DEFINED BUILD_SHARED_LIBS)
+    # No preference? Build both, just like the AC/AM configure
     set(SDL_SHARED_ENABLED_BY_DEFAULT ON)
+
+  elseif (BUILD_SHARED_LIBS)
+    # In this case, we assume the user wants a shared lib and don't build
+    # the static one
+    set(SDL_SHARED_ENABLED_BY_DEFAULT ON)
+    set(SDL_STATIC_ENABLED_BY_DEFAULT OFF)
+  endif()
 endif()
 
 set(SDL_SUBSYSTEMS
@@ -337,17 +373,18 @@ set_option(VIDEO_COCOA         "Use Cocoa video driver" ${APPLE})
 set_option(DIRECTX             "Use DirectX for Windows audio/video" ${WINDOWS})
 set_option(WASAPI              "Use the Windows WASAPI audio driver" ${WINDOWS})
 set_option(RENDER_D3D          "Enable the Direct3D render driver" ${WINDOWS})
+set_option(RENDER_METAL        "Enable the Metal render driver" ${APPLE})
 set_option(VIDEO_VIVANTE       "Use Vivante EGL video driver" ${UNIX_SYS})
 dep_option(VIDEO_VULKAN        "Enable Vulkan support" ON "ANDROID OR APPLE OR LINUX OR WINDOWS" OFF)
+set_option(VIDEO_METAL         "Enable Metal support" ${APPLE})
 set_option(VIDEO_KMSDRM        "Use KMS DRM video driver" ${UNIX_SYS})
 dep_option(KMSDRM_SHARED       "Dynamically load KMS DRM support" ON "VIDEO_KMSDRM" OFF)
 option_string(BACKGROUNDING_SIGNAL "number to use for magic backgrounding signal or 'OFF'" "OFF")
 option_string(FOREGROUNDING_SIGNAL "number to use for magic foregrounding signal or 'OFF'" "OFF")
+set_option(HIDAPI              "Use HIDAPI for low level joystick drivers" ${OPT_DEF_HIDAPI})
 
-# TODO: We should (should we?) respect cmake's ${BUILD_SHARED_LIBS} flag here
-# The options below are for compatibility to configure's default behaviour.
 set(SDL_SHARED ${SDL_SHARED_ENABLED_BY_DEFAULT} CACHE BOOL "Build a shared version of the library")
-set(SDL_STATIC ON CACHE BOOL "Build a static version of the library")
+set(SDL_STATIC ${SDL_STATIC_ENABLED_BY_DEFAULT} CACHE BOOL "Build a static version of the library")
 
 dep_option(SDL_STATIC_PIC      "Static version of the library should be built with Position Independent Code" OFF "SDL_STATIC" OFF)
 set_option(SDL_TEST            "Build the test directory" OFF)
@@ -403,6 +440,11 @@ if(USE_GCC OR USE_CLANG)
     if(HAIKU)
       set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-multichar")
     endif()
+  endif()
+
+  check_c_compiler_flag(-fno-strict-aliasing HAVE_GCC_NO_STRICT_ALIASING)
+  if(HAVE_GCC_NO_STRICT_ALIASING)
+    list(APPEND EXTRA_CFLAGS "-fno-strict-aliasing")
   endif()
 
   check_c_compiler_flag(-Wdeclaration-after-statement HAVE_GCC_WDECLARATION_AFTER_STATEMENT)
@@ -810,6 +852,7 @@ if(SDL_VIDEO)
   endif()
 endif()
 
+# Platform-specific options and settings
 if(ANDROID)
   file(GLOB ANDROID_CORE_SOURCES ${SDL2_SOURCE_DIR}/src/core/android/*.c)
   set(SOURCE_FILES ${SOURCE_FILES} ${ANDROID_CORE_SOURCES})
@@ -845,6 +888,7 @@ if(ANDROID)
     set(HAVE_SDL_HAPTIC TRUE)
   endif()
   if(SDL_JOYSTICK)
+    CheckHIDAPI()
     set(SDL_JOYSTICK_ANDROID 1)
     file(GLOB ANDROID_JOYSTICK_SOURCES ${SDL2_SOURCE_DIR}/src/joystick/android/*.c ${SDL2_SOURCE_DIR}/src/joystick/steam/*.c)
     set(SOURCE_FILES ${SOURCE_FILES} ${ANDROID_JOYSTICK_SOURCES})
@@ -881,16 +925,24 @@ if(ANDROID)
     set(HAVE_SDL_VIDEO TRUE)
 
     # Core stuff
-    find_library(ANDROID_DL_LIBRARY dl)
+    # find_library(ANDROID_DL_LIBRARY dl)
+    # FIXME failing dlopen https://github.com/android-ndk/ndk/issues/929
+    find_library(ANDROID_DL_LIBRARY NAMES libdl.so dl)
     find_library(ANDROID_LOG_LIBRARY log)
     find_library(ANDROID_LIBRARY_LIBRARY android)
     list(APPEND EXTRA_LIBS ${ANDROID_DL_LIBRARY} ${ANDROID_LOG_LIBRARY} ${ANDROID_LIBRARY_LIBRARY})
     add_definitions(-DGL_GLEXT_PROTOTYPES)
 
+    if (HAVE_HIDAPI)
+        list(APPEND EXTRA_LIBS hidapi)
+    endif()
+
     #enable gles
     if(VIDEO_OPENGLES)
       set(SDL_VIDEO_OPENGL_EGL 1)
       set(HAVE_VIDEO_OPENGLES TRUE)
+      set(SDL_VIDEO_OPENGL_ES 1)
+      set(SDL_VIDEO_RENDER_OGL_ES 1)
       set(SDL_VIDEO_OPENGL_ES2 1)
       set(SDL_VIDEO_RENDER_OGL_ES2 1)
 
@@ -914,14 +966,9 @@ if(ANDROID)
     endif()
   endif()
 
-  file(GLOB ANDROID_HIDAPI_SOURCES ${SDL2_SOURCE_DIR}/src/hidapi/android/*.cpp)
-
   CheckPTHREAD()
 
-endif()
-
-# Platform-specific options and settings
-if(EMSCRIPTEN)
+elseif(EMSCRIPTEN)
   # Hide noisy warnings that intend to aid mostly during initial stages of porting a new
   # project. Uncomment at will for verbose cross-compiling -I/../ path info.
   add_definitions(-Wno-warn-absolute-paths)
@@ -973,6 +1020,7 @@ if(EMSCRIPTEN)
       set(SDL_VIDEO_RENDER_OGL_ES2 1)
     endif()
   endif()
+
 elseif(UNIX AND NOT APPLE AND NOT ANDROID)
   if(SDL_AUDIO)
     if(SYSV5 OR SOLARIS OR HPUX)
@@ -1072,6 +1120,7 @@ elseif(UNIX AND NOT APPLE AND NOT ANDROID)
         set(HAVE_IBUS_IBUS_H TRUE)
         include_directories(${IBUS_INCLUDE_DIRS})
         list(APPEND EXTRA_LIBS ${IBUS_LIBRARIES})
+        add_definitions(-DSDL_USE_IME)
       endif()
       if(HAVE_LIBUNWIND_H)
         # We've already found the header, so REQUIRE the lib to be present
@@ -1095,7 +1144,10 @@ elseif(UNIX AND NOT APPLE AND NOT ANDROID)
   endif()
 
   if(SDL_JOYSTICK)
-    CheckUSBHID()   # seems to be BSD specific - limit the test to BSD only?
+    if(FREEBSD OR NETBSD OR OPENBSD OR BSDI)
+      CheckUSBHID()
+    endif()
+    CheckHIDAPI()
     if(LINUX AND NOT ANDROID)
       set(SDL_JOYSTICK_LINUX 1)
       file(GLOB JOYSTICK_SOURCES ${SDL2_SOURCE_DIR}/src/joystick/linux/*.c ${SDL2_SOURCE_DIR}/src/joystick/steam/*.c)
@@ -1301,7 +1353,7 @@ elseif(WINDOWS)
   endif()
 
   # Libraries for Win32 native and MinGW
-  list(APPEND EXTRA_LIBS user32 gdi32 winmm imm32 ole32 oleaut32 version uuid advapi32 shell32)
+  list(APPEND EXTRA_LIBS user32 gdi32 winmm imm32 ole32 oleaut32 version uuid advapi32 setupapi shell32)
 
   # TODO: in configure.ac the check for timers is set on
   # cygwin | mingw32* - does this include mingw32CE?
@@ -1339,6 +1391,11 @@ elseif(WINDOWS)
   endif()
 
   if(SDL_JOYSTICK)
+    CheckHIDAPI()
+    # TODO: Remove this hid.c block when SDL_hidapi.c is supported on Windows!
+    if(HAVE_HIDAPI)
+      set(SOURCE_FILES ${SOURCE_FILES} ${SDL2_SOURCE_DIR}/src/hidapi/windows/hid.c)
+    endif()
     file(GLOB JOYSTICK_SOURCES ${SDL2_SOURCE_DIR}/src/joystick/windows/*.c)
     set(SOURCE_FILES ${SOURCE_FILES} ${JOYSTICK_SOURCES})
     if(HAVE_DINPUT_H)
@@ -1384,6 +1441,7 @@ elseif(WINDOWS)
     set(SDL_CFLAGS "${SDL_CFLAGS} -Dmain=SDL_main")
     list(APPEND SDL_LIBS "-lmingw32" "-lSDL2main" "-mwindows")
   endif()
+
 elseif(APPLE)
   # TODO: rework this all for proper MacOS X, iOS and Darwin support
 
@@ -1421,6 +1479,12 @@ elseif(APPLE)
   endif()
 
   if(SDL_JOYSTICK)
+    CheckHIDAPI()
+    if(HAVE_HIDAPI)
+      if(IOS)
+        set(SOURCE_FILES ${SOURCE_FILES} ${SDL2_SOURCE_DIR}/src/hidapi/ios/hid.m)
+      endif()
+    endif()
     set(SDL_JOYSTICK_IOKIT 1)
     if (IOS)
       file(GLOB JOYSTICK_SOURCES ${SDL2_SOURCE_DIR}/src/joystick/iphoneos/*.m ${SDL2_SOURCE_DIR}/src/joystick/steam/*.c)
@@ -1478,6 +1542,69 @@ elseif(APPLE)
     set(HAVE_SDL_FILESYSTEM TRUE)
   endif()
 
+  # iOS hack needed - http://code.google.com/p/ios-cmake/ ?
+  if(SDL_VIDEO)
+    if (IOS)
+      set(SDL_VIDEO_DRIVER_UIKIT 1)
+      file(GLOB UIKITVIDEO_SOURCES ${SDL2_SOURCE_DIR}/src/video/uikit/*.m)
+      set(SOURCE_FILES ${SOURCE_FILES} ${UIKITVIDEO_SOURCES})
+    else()
+      CheckCOCOA()
+      if(VIDEO_OPENGL)
+        set(SDL_VIDEO_OPENGL 1)
+        set(SDL_VIDEO_OPENGL_CGL 1)
+        set(SDL_VIDEO_RENDER_OGL 1)
+        set(HAVE_VIDEO_OPENGL TRUE)
+      endif()
+
+      if(VIDEO_OPENGLES)
+        set(SDL_VIDEO_OPENGL_EGL 1)
+        set(SDL_VIDEO_OPENGL_ES2 1)
+        set(SDL_VIDEO_RENDER_OGL_ES2 1)
+        set(HAVE_VIDEO_OPENGLES TRUE)
+      endif()
+    endif()
+    
+    if(VIDEO_VULKAN OR VIDEO_METAL OR RENDER_METAL)
+      set(ORIG_CMAKE_REQUIRED_FLAGS ${CMAKE_REQUIRED_FLAGS})
+      set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} -x objective-c")
+      check_c_source_compiles("
+        #include <AvailabilityMacros.h>
+        #import <Metal/Metal.h>
+        #import <QuartzCore/CAMetalLayer.h>
+
+        #if TARGET_OS_SIMULATOR || (!TARGET_CPU_X86_64 && !TARGET_CPU_ARM64)
+        #error Metal doesn't work on this configuration
+        #endif
+        int main()
+        {
+            return 0;
+        }
+        " HAVE_FRAMEWORK_METAL)
+      set(CMAKE_REQUIRED_FLAGS ${ORIG_CMAKE_REQUIRED_FLAGS})
+      if(HAVE_FRAMEWORK_METAL)
+        set(SDL_FRAMEWORK_METAL 1)
+        set(SDL_FRAMEWORK_QUARTZCORE 1)
+      else()
+        set(VIDEO_VULKAN 0)
+        set(VIDEO_METAL 0)
+        set(RENDER_METAL 0)
+      endif()
+    endif()
+
+    if(VIDEO_METAL)
+      set(SDL_VIDEO_METAL 1)
+      set(HAVE_VIDEO_METAL TRUE)
+    endif()
+
+    if(RENDER_METAL)
+      file(GLOB RENDER_METAL_SOURCES ${SDL2_SOURCE_DIR}/src/render/metal/*.m)
+      set(SOURCE_FILES ${SOURCE_FILES} ${RENDER_METAL_SOURCES})
+      set(SDL_VIDEO_RENDER_METAL 1)
+      set(HAVE_RENDER_METAL TRUE)
+    endif()
+  endif()
+
   # Actually load the frameworks at the end so we don't duplicate include.
   if(SDL_FRAMEWORK_COREVIDEO)
     find_library(COREVIDEO CoreVideo)
@@ -1507,32 +1634,25 @@ elseif(APPLE)
     find_library(AUDIOTOOLBOX AudioToolbox)
     list(APPEND EXTRA_LIBS ${AUDIOTOOLBOX})
   endif()
-
-  # iOS hack needed - http://code.google.com/p/ios-cmake/ ?
-  if(SDL_VIDEO)
-    if (IOS)
-      set(SDL_VIDEO_DRIVER_UIKIT 1)
-      file(GLOB UIKITVIDEO_SOURCES ${SDL2_SOURCE_DIR}/src/video/uikit/*.m)
-      set(SOURCE_FILES ${SOURCE_FILES} ${UIKITVIDEO_SOURCES})
+  if(SDL_FRAMEWORK_METAL)
+    if(IOS)
+      find_library(METAL Metal)
+      list(APPEND EXTRA_LIBS ${METAL})
     else()
-      CheckCOCOA()
-      if(VIDEO_OPENGL)
-        set(SDL_VIDEO_OPENGL 1)
-        set(SDL_VIDEO_OPENGL_CGL 1)
-        set(SDL_VIDEO_RENDER_OGL 1)
-        set(HAVE_VIDEO_OPENGL TRUE)
-      endif()
-
-      if(VIDEO_OPENGLES)
-        set(SDL_VIDEO_OPENGL_EGL 1)
-        set(SDL_VIDEO_OPENGL_ES2 1)
-        set(SDL_VIDEO_RENDER_OGL_ES2 1)
-        set(HAVE_VIDEO_OPENGLES TRUE)
-      endif()
+      list(APPEND EXTRA_LDFLAGS "-Wl,-weak_framework,Metal")
+    endif()
+  endif()
+  if(SDL_FRAMEWORK_QUARTZCORE)
+    if(IOS)
+      find_library(QUARTZCORE QuartzCore)
+      list(APPEND EXTRA_LIBS ${QUARTZCORE})
+    else()
+      list(APPEND EXTRA_LDFLAGS "-Wl,-weak_framework,QuartzCore")
     endif()
   endif()
 
   CheckPTHREAD()
+
 elseif(HAIKU)
   if(SDL_VIDEO)
     set(SDL_VIDEO_DRIVER_HAIKU 1)
@@ -1747,6 +1867,10 @@ if (NOT ANDROID)
   set_target_properties(SDL2main PROPERTIES DEBUG_POSTFIX ${SDL_CMAKE_DEBUG_POSTFIX})
 endif()
 
+if (ANDROID AND HAVE_HIDAPI)
+  set(_INSTALL_LIBS ${_INSTALL_LIBS} "hidapi")
+endif()
+
 if(SDL_SHARED)
   add_library(SDL2 SHARED ${SOURCE_FILES} ${VERSION_SOURCES})
   if(APPLE)
@@ -1779,14 +1903,19 @@ if(SDL_SHARED)
 endif()
 
 if(ANDROID)
-  add_library(hidapi SHARED ${ANDROID_HIDAPI_SOURCES})
+  if(HAVE_HIDAPI)
+    add_library(hidapi SHARED ${SDL2_SOURCE_DIR}/src/hidapi/android/hid.cpp)
+  endif()
+
   if(MSVC AND NOT LIBC)
     # Don't try to link with the default set of libraries.
     set_target_properties(hidapi PROPERTIES LINK_FLAGS_RELEASE "/NODEFAULTLIB")
     set_target_properties(hidapi PROPERTIES LINK_FLAGS_DEBUG "/NODEFAULTLIB")
     set_target_properties(hidapi PROPERTIES STATIC_LIBRARY_FLAGS "/NODEFAULTLIB")
   endif()
-  target_link_libraries(hidapi log)
+  if(HAVE_HIDAPI)
+    target_link_libraries(hidapi log)
+  endif()
 endif()
 
 if(SDL_STATIC)
@@ -1831,9 +1960,7 @@ install(TARGETS ${_INSTALL_LIBS} EXPORT SDL2Targets
   RUNTIME DESTINATION bin)
 
 ##### Export files #####
-if (APPLE)
-  set(PKG_PREFIX "SDL2.framework/Resources")
-elseif (WINDOWS)
+if (WINDOWS)
   set(PKG_PREFIX "cmake")
 else ()
   set(PKG_PREFIX "lib/cmake/SDL2")
