@@ -1,3 +1,4 @@
+Xcode/SDL/SDL.xcodeproj/xcuserdata/
 Xcode-iOS/SDL/SDL.xcodeproj/xcuserdata/
 Xcode-iOS/SDL/build/
 VisualC/.vs/SDL/v15/.suo
@@ -13,3 +14,4 @@ VisualC/.vs/SDL/v15/.suo
 *.pdb
 *.tlog
 *.res
+.DS_Store
